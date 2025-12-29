@@ -1,0 +1,68 @@
+defmodule CMS.Application do
+  use Application
+
+  @impl true
+  def start(_type, _args) do
+    # -1. Guard Entry (The Git-Lock)
+    # Critical: Ensures we own the data directory before touching any files.
+    :ok = CMS.Infrastructure.InstanceGuard.guard_entry()
+
+    # 0. Bootloader Logic (Synchronous)
+    # Checks lock file. If mismatch, PURGES Mnesia/Vectors and Rehydrates from JSONL.
+    # Mnesia MUST NOT be running yet, or it would have crashed on schema load.
+    :ok = CMS.Persistence.Bootloader.run()
+    
+    # 0.5 Initialize Lock-Free Indices
+    CMS.Core.Logic.DriftIndex.init()
+    
+    # 1. Start Mnesia (Safe now, either matches current arch or is fresh)
+    :mnesia.start()
+  
+    children = [
+      # 0. Infrastructure Guard (Process Monitor for Lock Cleanup)
+      CMS.Infrastructure.InstanceGuard,
+
+      # 1. Core Registries
+      {Registry, keys: :unique, name: CMS.NodeRegistry},
+      {Registry, keys: :unique, name: CMS.QueryCoordinatorRegistry},
+
+      # 2. Communication Backbone (Cognitive Bus)
+      {Phoenix.PubSub, name: CMS.PubSub},
+
+      # 3. Persistence Layer
+      CMS.EpochManager,
+      CMS.LogAppender,
+      CMS.VectorRouter,
+      CMS.SymbolicIndex,  # NEW: Path → PID lookup
+
+      # 4. Learning & Regulation Layer
+      CMS.ActivationEngine,
+      CMS.HebbianBufferSupervisor,
+      CMS.Core.Logic.PhysiologyEngine, # Phase 5: Metabolic Pulse Engine
+
+      # 5. Ingestion & Query Services
+      CMS.Infrastructure.OllamaBridge,
+      CMS.Services.LiveWire,
+      CMS.Symbiosis.ProcessLinker, # Section 16: CDMS/CREMS Symbiosis
+      {Task.Supervisor, name: CMS.Ingestion.TaskSupervisor},
+      CMS.BroadcastCoordinator,
+
+      # 6. The Node Population
+      CMS.NodeSupervisor,
+
+      {CMS.Web, port: Application.get_env(:acn_cms, :web_port, 4000)}
+    ]
+
+    opts = [strategy: :one_for_one, name: CMS.Supervisor]
+    case Supervisor.start_link(children, opts) do
+      {:ok, pid} ->
+        # 7. Post-Boot Hydration
+        # Spawns node processes from epoch logs.
+        CMS.Recovery.Hydrator.run()
+        {:ok, pid}
+
+      error -> 
+        error
+    end
+  end
+end

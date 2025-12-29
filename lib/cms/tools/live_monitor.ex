@@ -1,0 +1,105 @@
+defmodule CMS.Tools.LiveMonitor do
+  use GenServer
+  require Logger
+
+  @moduledoc """
+  A Matrix-style real-time console visualizer for the CMS.
+
+  Run this in IEx to watch the brain think:
+  iex> CMS.Tools.LiveMonitor.start()
+  """
+
+  # ANSI Colors
+  @reset "\u001b[0m"
+  @green "\u001b[32m"      # Creation / Success
+  @blue "\u001b[34m"       # Query / Activation
+  @magenta "\u001b[35m"    # Neuroplasticity / Learning
+  @yellow "\u001b[33m"     # Warning / Conflict
+  @red "\u001b[31m"        # Decay / Destruction
+  @cyan "\u001b[36m"       # System / Pulse
+
+  def start do
+    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
+    IO.puts("\n#{@green}>>> NEURAL MONITOR ACTIVE. LISTENING TO COGNITIVE BUS... <<<#{@reset}\n")
+  end
+
+  def init(:ok) do
+    # Subscribe to the entire brain
+    Phoenix.PubSub.subscribe(CMS.PubSub, "global:signals")
+    Phoenix.PubSub.subscribe(CMS.PubSub, "global:abnormality_signal")
+    Phoenix.PubSub.subscribe(CMS.PubSub, "system_congestion")
+
+    # We also want to snoop on query traffic.
+    # Since regions are dynamic, we just listen to global signals,
+    # but strictly speaking, QueryCoordinator fires results to specific PIDs.
+    # To monitor queries, we rely on the modifications made in Step 1/2 or existing broadcasts.
+    {:ok, %{}}
+  end
+
+  # -------------------------------------------------------------------
+  # 1. NEUROPLASTICITY (Hebbian Learning)
+  # -------------------------------------------------------------------
+  def handle_info({:hebbian_learning, data}, state) do
+    {source, updates} = data.sample
+    target_count = length(updates)
+
+    IO.puts """
+    #{@magenta}[NEUROPLASTICITY]#{@reset} Batch Processed: #{data.update_count} weight adjustments.
+    Example: Node #{short_id(source)} strengthened links to #{target_count} neighbors.
+    """
+    {:noreply, state}
+  end
+
+  # -------------------------------------------------------------------
+  # 2. CONFLICT RESOLUTION (Dialectics)
+  # -------------------------------------------------------------------
+  def handle_info({:conflict_resolved, data}, state) do
+    msg = case data.type do
+      :superseded -> "Node #{short_id(data.winner)} SUPERSEDED #{short_id(data.loser)} (Trust Dominance)."
+      :dialectical_merge -> "Dialectical Merge initiated between #{short_id(data.node_a)} and #{short_id(data.node_b)}."
+    end
+
+    IO.puts """
+    #{@yellow}[CONFLICT ARBITRATION] #{msg}#{@reset}
+    """
+    {:noreply, state}
+  end
+
+  # -------------------------------------------------------------------
+  # 3. SPREADING ACTIVATION (Pulses)
+  # -------------------------------------------------------------------
+  # Note: To see pulses, we must subscribe to specific nodes.
+  # This handler catches the 'abnormality' signals which are high-level pulse events.
+  def handle_info({:abnormality_signal, opts}, state) do
+    IO.puts """
+    #{@cyan}[HIGH ENERGY ACTIVATION]#{@reset} Node #{short_id(opts[:node_id])}
+    Reason: #{opts[:reason]} | Query ID: #{short_id(opts[:query_id])}
+    """
+    {:noreply, state}
+  end
+
+  # -------------------------------------------------------------------
+  # 4. SYSTEM CONGESTION (Inhibition)
+  # -------------------------------------------------------------------
+  def handle_info({:system_congestion, level}, state) do
+    color = if level > 0.5, do: @red, else: @blue
+    IO.puts """
+    #{color}[SYSTEM HOMEOSTASIS] Congestion Level: #{level}. Inhibition Factor modulated.
+    """
+    {:noreply, state}
+  end
+
+  # -------------------------------------------------------------------
+  # 5. CATCH-ALL (Debugging)
+  # -------------------------------------------------------------------
+  def handle_info(_msg, state) do
+    # Uncomment to see EVERYTHING (noisy)
+    # IO.inspect(msg, label: "RAW SIGNAL")
+    {:noreply, state}
+  end
+
+  defp short_id(nil), do: "???"
+  defp short_id(id) do
+    if String.length(id) > 8, do: String.slice(id, 0, 8), else: id
+  end
+end
