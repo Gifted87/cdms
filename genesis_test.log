@@ -1,0 +1,76 @@
+14:51:42.026 [info] CMS Bootloader: Checking Persistence Integrity...
+14:51:42.042 [info] CMS Bootloader: Identity Verified. Fast Boot initiated.
+14:51:42.358 [info] [InstanceGuard] Lock acquired on /home/gifted/cdms/priv/data
+14:51:42.395 [notice] Application mnesia exited: :stopped
+14:51:42.461 [info] Mnesia schema created on disk at /home/gifted/cdms/priv/data/mnesia_store.
+14:51:42.569 [info] Mnesia table epoch_log_index created.
+14:51:42.580 [info] Mnesia table nodes_table created.
+14:51:42.589 [info] Mnesia table vector_index created.
+14:51:42.621 [info] Started new Epoch Log: priv/data/epochs/epoch_2025-12-28T13-51-42.610580Z_5c8b8116-e996-4e75-b7c4-180236768715.jsonl
+14:51:42.635 [info] CMS.VectorRouter: No index found for nomic-embed-text. Creating fresh.
+14:51:42.670 [info] CMS.VectorRouter: No index found for all-MiniLM-L6-v2. Creating fresh.
+14:51:42.679 [info] CMS.VectorRouter: No index found for custom-bert-v1. Creating fresh.
+14:51:42.688 [info] SymbolicIndex: Path registry initialized
+14:51:42.694 [info] CMS.ActivationEngine started. Global Factor: 1.0
+14:51:42.700 [info] Hebbian Shard 0 started. ETS: :hebbian_buffer_0
+14:51:42.700 [info] Hebbian Shard 1 started. ETS: :hebbian_buffer_1
+14:51:42.700 [info] Hebbian Shard 2 started. ETS: :hebbian_buffer_2
+14:51:42.701 [info] Hebbian Shard 3 started. ETS: :hebbian_buffer_3
+14:51:42.701 [info] Hebbian Shard 4 started. ETS: :hebbian_buffer_4
+14:51:42.702 [info] Hebbian Shard 5 started. ETS: :hebbian_buffer_5
+14:51:42.702 [info] Hebbian Shard 6 started. ETS: :hebbian_buffer_6
+14:51:42.702 [info] Hebbian Shard 7 started. ETS: :hebbian_buffer_7
+14:51:42.702 [info] Hebbian Shard 8 started. ETS: :hebbian_buffer_8
+14:51:42.703 [info] Hebbian Shard 9 started. ETS: :hebbian_buffer_9
+14:51:42.703 [info] Hebbian Shard 10 started. ETS: :hebbian_buffer_10
+14:51:42.703 [info] Hebbian Shard 11 started. ETS: :hebbian_buffer_11
+14:51:42.704 [info] Hebbian Shard 12 started. ETS: :hebbian_buffer_12
+14:51:42.705 [info] Hebbian Shard 13 started. ETS: :hebbian_buffer_13
+14:51:42.706 [info] Hebbian Shard 14 started. ETS: :hebbian_buffer_14
+14:51:42.706 [info] Hebbian Shard 15 started. ETS: :hebbian_buffer_15
+14:51:42.707 [info] Hebbian Shard 16 started. ETS: :hebbian_buffer_16
+14:51:42.707 [info] Hebbian Shard 17 started. ETS: :hebbian_buffer_17
+14:51:42.708 [info] Hebbian Shard 18 started. ETS: :hebbian_buffer_18
+14:51:42.708 [info] Hebbian Shard 19 started. ETS: :hebbian_buffer_19
+14:51:42.709 [info] Hebbian Shard 20 started. ETS: :hebbian_buffer_20
+14:51:42.709 [info] Hebbian Shard 21 started. ETS: :hebbian_buffer_21
+14:51:42.710 [info] Hebbian Shard 22 started. ETS: :hebbian_buffer_22
+14:51:42.710 [info] Hebbian Shard 23 started. ETS: :hebbian_buffer_23
+14:51:42.711 [info] Hebbian Shard 24 started. ETS: :hebbian_buffer_24
+14:51:42.711 [info] Hebbian Shard 25 started. ETS: :hebbian_buffer_25
+14:51:42.712 [info] Hebbian Shard 26 started. ETS: :hebbian_buffer_26
+14:51:42.712 [info] Hebbian Shard 27 started. ETS: :hebbian_buffer_27
+14:51:42.713 [info] Hebbian Shard 28 started. ETS: :hebbian_buffer_28
+14:51:42.714 [info] Hebbian Shard 29 started. ETS: :hebbian_buffer_29
+14:51:42.714 [info] Hebbian Shard 30 started. ETS: :hebbian_buffer_30
+14:51:42.715 [info] Hebbian Shard 31 started. ETS: :hebbian_buffer_31
+14:51:42.715 [info] CMS.Web API started on port 4000
+14:51:42.835 [info] HYDRATOR: Beginning CDMS Hydration Protocol...
+14:51:42.835 [info] HYDRATOR: Found 1 files. Loading nodes...
+14:51:42.847 [info] HYDRATOR: Loaded 0 nodes from disk. Spawning processes...
+14:51:42.848 [info] Starting CDMS Genesis for: /home/gifted/cdms
+14:51:42.848 [info] Checking Ollama Connectivity...
+14:51:52.428 [info] Ollama Bridge: ONLINE. Model 'qwen3:0.6b' is ready.
+14:51:52.428 [info] Pass One: Awakening (Populating hierarchy)...
+14:51:52.436 [info] Genesis Swarm unleashed (Phase 1). Waiting for wavefront completion...
+14:51:52.440 [debug] ExclusionCortex: Dropping /home/gifted/cdms/deps (Blocklist)
+14:51:52.440 [debug] ExclusionCortex: Dropping /home/gifted/cdms/_build (Blocklist)
+14:52:01.074 [error] GenServer #PID<0.692.0> terminating
+** (stop) {:aborted, {:bad_type, {:nodes_table, "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", nil, %CMS.NodeHead{uuid: "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", embedding: #Nx.Tensor<
+       f32[384]
+       [0.03492097929120064, -0.005281602963805199, -0.14560532569885254, 0.0028212396427989006, 0.046866755932569504, -0.04761921986937523, 0.08378201723098755, 0.10188984125852585, -0.036594223231077194, 0.10702936351299286, 0.11094817519187927, 0.023745426908135414, 0.01630602963268757, -0.05240775644779205, 0.06037300452589989, 0.015695253387093544, -0.06985323876142502, 0.05459645390510559, 0.10573200136423111, -0.012492632493376732, 0.04880468174815178, 0.07247035950422287, 0.05145777761936188, 0.021137408912181854, -0.06662781536579132, -0.024282045662403107, 0.012573862448334694, 0.031687602400779724, -0.03484935685992241, -0.10900670289993286, 0.024234695360064507, 0.03200039267539978, 0.0035114113707095385, 0.055173151195049286, 0.13424061238765717, 0.03756168857216835, 0.074056476354599, -0.05986529588699341, -0.07650947570800781, ...]
+     >, embedding_model_version: "all-MiniLM-L6-v2", relevance_threshold: 0.35, internal_state: :genesis, spatial_coords: {0.0, 0.0, 0}, width_descriptor: "m0"}, %CMS.NodeBody{data_head: %CMS.DataHead{summary: "cdms directory containing Files: 2 .exs, 1 .lock, 1 .log, 3 .py, 1 .sh, 1 .txt. Subdirectories: test_genesis, priv, lib, config, memory_cartridges, test", concepts: ["cdms", "Directory", "Folder"]}, data_body: nil, data_ledger: %CMS.DataTail{physical_symlink: "/home/gifted/cdms", integrity_hash: "dir_hash", mime_definition: "inode/directory", last_mutation: ~U[2025-12-28 13:52:01.035519Z], chrono_stack: %CMS.ChronoStack{snapshots: []}, salience_score: 0.5}, mode: :shallow}, %CMS.NodeTail{hierarchical: [], syntactic: [], semantic: []}, %CMS.ChronoStack{snapshots: []}}}}
+    (mnesia 4.21.4.2) mnesia.erl:362: :mnesia.abort/1
+    (mnesia 4.21.4.2) mnesia.erl:1795: :mnesia.do_dirty_write/3
+    (acn_cms 1.0.0) lib/cms/ingestion/directory_agent.ex:170: CMS.Ingestion.DirectoryAgent.ensure_directory_node/4
+    (acn_cms 1.0.0) lib/cms/ingestion/directory_agent.ex:39: CMS.Ingestion.DirectoryAgent.handle_info/2
+    (stdlib 4.3.1.3) gen_server.erl:1123: :gen_server.try_dispatch/4
+    (stdlib 4.3.1.3) gen_server.erl:1200: :gen_server.handle_msg/6
+    (stdlib 4.3.1.3) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Last message: :genesis_sequence
+State: %{children_uuids: [], my_uuid: nil, opts: [edge_generation: true, notify_pid: #PID<0.96.0>], parent_id: nil, path: "/home/gifted/cdms", spatial_coords: {0.0, 0.0, 0}, width_descriptor: "m0"}
+** (EXIT from #PID<0.96.0>) {:aborted, {:bad_type, {:nodes_table, "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", nil, %CMS.NodeHead{uuid: "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", embedding: #Nx.Tensor<
+       f32[384]
+       [0.03492097929120064, -0.005281602963805199, -0.14560532569885254, 0.0028212396427989006, 0.046866755932569504, -0.04761921986937523, 0.08378201723098755, 0.10188984125852585, -0.036594223231077194, 0.10702936351299286, 0.11094817519187927, 0.023745426908135414, 0.01630602963268757, -0.05240775644779205, 0.06037300452589989, 0.015695253387093544, -0.06985323876142502, 0.05459645390510559, 0.10573200136423111, -0.012492632493376732, 0.04880468174815178, 0.07247035950422287, 0.05145777761936188, 0.021137408912181854, -0.06662781536579132, -0.024282045662403107, 0.012573862448334694, 0.031687602400779724, -0.03484935685992241, -0.10900670289993286, 0.024234695360064507, 0.03200039267539978, 0.0035114113707095385, 0.055173151195049286, 0.13424061238765717, 0.03756168857216835, 0.074056476354599, -0.05986529588699341, -0.07650947570800781, ...]
+     >, embedding_model_version: "all-MiniLM-L6-v2", relevance_threshold: 0.35, internal_state: :genesis, spatial_coords: {0.0, 0.0, 0}, width_descriptor: "m0"}, %CMS.NodeBody{data_head: %CMS.DataHead{summary: "cdms directory containing Files: 2 .exs, 1 .lock, 1 .log, 3 .py, 1 .sh, 1 .txt. Subdirectories: test_genesis, priv, lib, config, memory_cartridges, test", concepts: ["cdms", "Directory", "Folder"]}, data_body: nil, data_ledger: %CMS.DataTail{physical_symlink: "/home/gifted/cdms", integrity_hash: "dir_hash", mime_definition: "inode/directory", last_mutation: ~U[2025-12-28 13:52:01.035519Z], chrono_stack: %CMS.ChronoStack{snapshots: []}, salience_score: 0.5}, mode: :shallow}, %CMS.NodeTail{hierarchical: [], syntactic: [], semantic: []}, %CMS.ChronoStack{snapshots: []}}}}
+
