@@ -147,13 +147,15 @@ defmodule CMS.Web.Router do
     end
     
     # Calculate size
-    size = if content do
-      byte_size(content)
-    else
-      case node do
-        %{body: %{data_ledger: %{size: s}}} when is_integer(s) -> s
-        _ -> 0
-      end
+    size = cond do
+      is_binary(content) -> byte_size(content)
+      is_nil(content) ->
+        case node do
+          %{body: %{data_ledger: %{size: s}}} when is_integer(s) -> s
+          _ -> 0
+        end
+      true -> # Structured content (e.g. Meta-Node list)
+        byte_size(Jason.encode!(content))
     end
     
     # Get history info
@@ -269,6 +271,25 @@ defmodule CMS.Web.Router do
   end
   defp format_timestamp(_), do: "unknown"
 
+  defp is_directory?(node) do
+    # Check mime type in data_ledger or provenance
+    mime = case node do
+      %CMS.Node{body: %{data_ledger: %{mime_definition: mime}}} -> mime
+      %{body: %{data_ledger: %{mime_definition: mime}}} -> mime
+      %{"body" => %{"data_ledger" => %{"mime_definition" => mime}}} -> mime
+      _ -> nil
+    end
+
+    type = case node do
+      %CMS.Node{provenance: %{"type" => t}} -> t
+      %{provenance: %{"type" => t}} -> t
+      %{"provenance" => %{"type" => t}} -> t
+      _ -> nil
+    end
+
+    mime == "inode/directory" or type == "directory"
+  end
+
   # ----------------------------------------------------------------------------
   # 1. INGESTION API
   # ----------------------------------------------------------------------------
@@ -365,11 +386,17 @@ defmodule CMS.Web.Router do
       
       case CMS.QueryTriage.execute(query_string, opts) do
         {:ok, mode_used, results} ->
-          formatted = Enum.map(results, fn
-            %{node: node, score: score} -> build_cognitive_artifact(score, node)
-            %{} = node -> build_cognitive_artifact(1.0, node)
-            node -> build_cognitive_artifact(1.0, node)
-          end)
+          formatted = 
+            results
+            |> Enum.reject(fn
+              %{node: node} -> is_directory?(node)
+              node -> is_directory?(node)
+            end)
+            |> Enum.map(fn
+              %{node: node, score: score} -> build_cognitive_artifact(score, node)
+              %{} = node -> build_cognitive_artifact(1.0, node)
+              node -> build_cognitive_artifact(1.0, node)
+            end)
           
           send_json(conn, 200, %{
             mode_used: mode_used,
@@ -516,6 +543,7 @@ defmodule CMS.Web.Router do
     # Transform tuples {score, node} to Maps %{score: s, node: n} for JSON encoding
     trimmed_results =
       results
+      |> Enum.reject(fn {_score, node} -> is_directory?(node) end)
       |> Enum.map(fn {score, node} -> build_cognitive_artifact(score, node) end)
 
     send_json(conn, 200, %{
@@ -547,6 +575,7 @@ defmodule CMS.Web.Router do
             end
           end)
           |> Enum.filter(fn {score, _} -> score >= min_relevance end)
+          |> Enum.reject(fn {_score, node} -> is_directory?(node) end)
           |> Enum.sort_by(fn {score, _} -> score end, :desc)
           |> Enum.take(max_results)
           |> Enum.map(fn {score, node} -> build_cognitive_artifact(score, node) end)

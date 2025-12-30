@@ -17,7 +17,8 @@ defmodule CMS.NodeHead do
     :relevance_threshold,     # Float (0.0 - 1.0)
     :internal_state,          # Enum [Genesis, Steady, Mutating, Dormant]
     :spatial_coords,          # {x, y, z} tuple
-    :width_descriptor         # String: e.g., "mc0" (Gap 6.3)
+    :width_descriptor,        # String: e.g., "mc0" (Gap 6.3)
+    :label                    # String: Label for Jaro fallbacks
   ]
 
   @type uuid :: String.t()
@@ -41,8 +42,8 @@ defmodule CMS.NodeHead do
   Creates a new NodeHead with default metabolic energy.
   Z-Axis in `coords` represents Hierarchical Depth (Root = 0).
   """
-  @spec new(String.t(), Nx.Tensor.t(), String.t(), float(), {float(), float(), integer()}, String.t()) :: t()
-  def new(uuid, embedding, model_version, threshold \\ 0.35, coords \\ {0.0, 0.0, 0}, width \\ "m0") do
+  @spec new(String.t(), Nx.Tensor.t(), String.t(), float(), {float(), float(), integer()}, String.t(), String.t()) :: t()
+  def new(uuid, embedding, model_version, threshold \\ 0.35, coords \\ {0.0, 0.0, 0}, width \\ "m0", label \\ "") do
     %__MODULE__{
       uuid: uuid,
       embedding: embedding,
@@ -50,7 +51,8 @@ defmodule CMS.NodeHead do
       relevance_threshold: threshold,
       internal_state: :genesis,
       spatial_coords: coords,
-      width_descriptor: width
+      width_descriptor: width,
+      label: label
     }
   end
 

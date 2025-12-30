@@ -110,7 +110,7 @@ defmodule CMS.Recovery.Hydrator do
       uuid: node_map["id"],
       embedding: Nx.tensor(head_map["embedding"]),
       embedding_model_version: head_map["embedding_model_version"],
-      relevance_threshold: head_map["relevance_threshold"] || 0.35,
+      relevance_threshold: head_map["relevance_threshold"] || 0.8,
       internal_state: String.to_atom(head_map["internal_state"] || "genesis"),
       spatial_coords: coords,
       width_descriptor: head_map["width_descriptor"] || "m0"

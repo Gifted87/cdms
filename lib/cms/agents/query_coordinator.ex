@@ -17,7 +17,7 @@ defmodule CMS.QueryCoordinator do
   # Configuration
   @inhibit_threshold_count 100  # If >100 nodes fire, trigger inhibition
   @query_timeout 10_000         # Max time to wait if NO results arrive
-  @gathering_window 50          # NEW: Once first result arrives, wait only 50ms for others, then return.
+  # @gathering_window replaced by dynamic logic (50ms hardcoded per spec)
   @inhibit_check_delay 150      # Check for explosion 150ms after start
 
   # State
@@ -102,7 +102,6 @@ defmodule CMS.QueryCoordinator do
     Logger.debug("Coordinator #{state.query_id}: Received fired node #{node_id} (Score: #{:io_lib.format("~.4f", [relevance])})")
 
     # CRITICAL FIX: Duplicate Prevention logic
-    # We check if we already have this node. If we do, we only update if the new score is higher.
     should_update =
       case Map.get(state.fired_nodes, node_id) do
         {existing_score, _} when existing_score >= relevance -> false
@@ -119,19 +118,29 @@ defmodule CMS.QueryCoordinator do
       # 3. Latency Optimization (The Gathering Window)
       new_timer =
         if map_size(state.fired_nodes) == 0 do
-          Logger.debug("Coordinator #{state.query_id}: First result received. Switching to fast-path gathering window (#{@gathering_window}ms).")
+          Logger.debug("Coordinator #{state.query_id}: First result received. Switching to fast-path gathering window (5000ms).")
           Process.cancel_timer(state.timeout_timer)
-          Process.send_after(self(), :timeout, @gathering_window)
+          Process.send_after(self(), :timeout, 5000) # Increased to 500ms for Spreading Activation
         else
           state.timeout_timer
         end
 
       new_state = %{state | fired_nodes: new_fired, top_k_list: new_top_k, timeout_timer: new_timer}
 
-      # 4. Check Immediate Overload
-      if not state.inhibited? and map_size(new_fired) > @inhibit_threshold_count do
-        Logger.warning("Coordinator #{state.query_id}: Threshold exceeded (#{map_size(new_fired)} nodes). Triggering inhibition.")
+      # 4. Check Immediate Overload (Global Inhibition)
+      if not state.inhibited? and map_size(new_fired) > 100 do # Hardcoded 100 per spec
+        Logger.warning("Coordinator #{state.query_id}: Threshold exceeded (#{map_size(new_fired)} nodes). TRIGGERING GLOBAL INHIBITION.")
+        
+        # A. Broadcast STOP
         trigger_inhibition(state.query_id, state.active_regions)
+        
+        # B. Log System Congestion
+        LogAppender.append_system_event(:system_congestion, %{level: "critical", source: "QueryCoordinator", result_count: map_size(new_fired)})
+        
+        # C. Lower Factor (Increase Congestion)
+        # We set congestion to 1.0 (Critical) to force factor -> 0.1
+        CMS.ActivationEngine.set_congestion_level(1.0)
+
         report_query_failure(state, :cognitive_overload)
         {:noreply, %{new_state | inhibited?: true}}
       else
@@ -175,7 +184,7 @@ defmodule CMS.QueryCoordinator do
   def handle_info(:timeout, state) do
     # This handler is now dual-purpose:
     # 1. If 10s passed and NO results -> Report Timeout/Failure.
-    # 2. If 50ms passed and RESULTS exist -> Return Results (Fast Path).
+    # 2. If 5000ms passed and RESULTS exist -> Return Results (Fast Path).
 
     result_count = map_size(state.fired_nodes)
 

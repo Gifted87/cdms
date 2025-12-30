@@ -8,7 +8,7 @@ defmodule CMS.NodeActor do
   The Atomic Unit of Cognition (The Quad-Partite Actor).
   """
 
-  defstruct [:node, :hydrated?, :last_activation_times, :metabolic_energy, :region_id]
+  defstruct [:node, :hydrated?, :last_activation_times, :metabolic_energy, :region_id, :last_query_context]
 
   # --- Client API ---
 
@@ -50,7 +50,8 @@ defmodule CMS.NodeActor do
       hydrated?: true, 
       last_activation_times: %{}, 
       metabolic_energy: 1.0,
-      region_id: region_id
+      region_id: region_id,
+      last_query_context: nil
     }}
   end
 
@@ -151,46 +152,11 @@ defmodule CMS.NodeActor do
 
   @impl true
   def handle_cast(:fire, state) do
-    Logger.info("Node #{state.node.id} is firing!")
+    # Primary fire (e.g. from query) starts a NEW trace
+    trace = MapSet.new([state.node.id])
+    ttl = 1
     
-    now = DateTime.utc_now()
-    new_node = %{state.node | last_fired: now}
-    
-    # Global inhibition still applies
-    inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
-    
-    # Metabolic Modulation: Firing strength depends on energy levels
-    # Firing also consumes energy
-    firing_cost = 0.2
-    energy_modulated_gain = state.node.antenna.gain * state.metabolic_energy
-    
-    # base_strength modulation by metabolic energy and global inhibition
-    # Antenna Gain already incorporates Intrinsic Salience (Salience * 2.0)
-    # Modulation Formula: Gain * Energy * Inhibition Factor (0.1 to 1.0)
-    base_strength = energy_modulated_gain * inhibition
-
-    # 1. Pulse Semantic, Syntactic, and Hierarchical channels
-    # Only semantic pulses trigger Hebbian learning.
-    # We EXPLICITLY exclude functional edges to keep the connectome cognitively inert.
-    all_edges = state.node.tail.semantic ++ state.node.tail.syntactic ++ state.node.tail.hierarchical
-    
-    Enum.each(all_edges, fn edge ->
-      target_strength = base_strength * edge.weight
-      
-      Logger.debug(">>> Node #{state.node.id} Propagation: Pulsing target #{edge.target_node_id} [Type: #{edge.type}, Weight: #{edge.weight}, Strength: #{:io_lib.format("~.4f", [target_strength])}]")
-
-      case Registry.lookup(CMS.NodeRegistry, edge.target_node_id) do
-        [{pid, _}] -> send(pid, {:activation, state.node.id, target_strength, edge.type})
-        _ -> :ok
-      end
-    end)
-
-    CMS.LogAppender.append_node_event(state.node.id, :node_fired, %{strength: base_strength})
-    persist_node(new_node)
-
-    # Post-fire state: Reduced energy
-    new_energy = max(0.1, state.metabolic_energy - firing_cost)
-    {:noreply, %{state | node: new_node, metabolic_energy: new_energy}}
+    handle_cast({:fire_with_config, trace, ttl}, state)
   end
 
   @impl true
@@ -207,6 +173,44 @@ defmodule CMS.NodeActor do
     else
       {:noreply, state}
     end
+  end
+
+  @impl true
+  def handle_cast({:fire_with_config, trace, ttl}, state) do
+    Logger.info("Node #{state.node.id} is firing with trace (TTL: #{ttl})!")
+    
+    now = DateTime.utc_now()
+    new_node = %{state.node | last_fired: now}
+    
+    # Global inhibition still applies
+    inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
+    
+    # Metabolic Modulation - Penalties removed: Energy is always 1.0
+    energy_modulated_gain = state.node.antenna.gain # * 1.0
+    base_strength = energy_modulated_gain * inhibition
+
+    # Pulse edges with trace and decremented TTL
+    all_edges = state.node.tail.semantic ++ state.node.tail.syntactic ++ state.node.tail.hierarchical
+    
+    edge_count = length(all_edges)
+    Logger.info("Node #{state.node.id} preparing to pulse #{edge_count} edges (Base Strength: #{:io_lib.format("~.4f", [base_strength])}, Energy: #{:io_lib.format("~.4f", [state.metabolic_energy])}, Gain: #{state.node.antenna.gain}, Inhibit: #{inhibition})")
+
+    Enum.each(all_edges, fn edge ->
+      target_strength = base_strength * edge.weight
+      
+      Logger.debug(">>> Node #{state.node.id} Propagation: Pulsing target #{edge.target_node_id} [Type: #{edge.type}, Weight: #{edge.weight}, Strength: #{:io_lib.format("~.4f", [target_strength])}, TTL: #{ttl}]")
+
+      case Registry.lookup(CMS.NodeRegistry, edge.target_node_id) do
+        [{pid, _}] -> send(pid, {:activation, state.node.id, target_strength, edge.type, trace, ttl})
+        [] -> Logger.warning("Node #{state.node.id} failed to pulse #{edge.target_node_id}: Node not found in Registry.")
+      end
+    end)
+
+    CMS.LogAppender.append_node_event(state.node.id, :node_fired, %{strength: base_strength})
+    persist_node(new_node)
+
+    # Post-fire state: Always maintain full energy
+    {:noreply, %{state | node: new_node, metabolic_energy: 1.0}}
   end
 
   # --- Internal Helpers moved out of handle_cast block ---
@@ -235,28 +239,36 @@ defmodule CMS.NodeActor do
 
   @impl true
   def handle_info({:query, query_context}, state) do
-    # Decentralized Path: Every node evaluates its own relevance
-    case autonomous_query_evaluation(query_context, state) do
-      {:fire, relevance} ->
-        # 1. Report result to the coordinator
-        CMS.QueryCoordinator.node_fired(
-          query_context.query_id, 
-          state.node.id, 
-          relevance, 
-          state.node
-        )
-        
-        # 2. Trigger active pulse (Spreading Activation)
-        GenServer.cast(self(), :fire)
-        
-        # Boost metabolic energy on successful hit
-        new_energy = min(1.0, state.metabolic_energy + 0.1)
-        {:noreply, %{state | metabolic_energy: new_energy}}
+    if is_directory?(state.node) do
+      # Directories are structural, they don't participate in cognitive search
+      {:noreply, state}
+    else
+      # Decentralized Path: Every node evaluates its own relevance
+      Logger.info("[QUERY] Node #{String.slice(state.node.id, 0, 8)} evaluating query #{String.slice(query_context.query_id, 0, 8)}...")
+    
+      case autonomous_query_evaluation(query_context, state) do
+        {:fire, relevance} ->
+          Logger.info("[FIRE] Node #{String.slice(state.node.id, 0, 8)} FIRES! Relevance: #{:io_lib.format("~.4f", [relevance])} | Path: #{state.node.body.data_ledger.physical_symlink}")
+          
+          # 1. Report result to the coordinator
+          CMS.QueryCoordinator.node_fired(
+            query_context.query_id, 
+            state.node.id, 
+            relevance, 
+            state.node
+          )
+          
+          # 2. Trigger active pulse (Spreading Activation)
+          GenServer.cast(self(), :fire)
+          
+          # Always maintain full energy
+          {:noreply, %{state | metabolic_energy: 1.0, last_query_context: query_context}}
 
-      :ignore ->
-        # Natural decay of energy if we are ignored?
-        # For now, let's keep energy stable unless we fire.
-        {:noreply, state}
+        {:ignore, relevance, t_adj} ->
+          Logger.debug("Node #{String.slice(state.node.id, 0, 8)} ignored: R=#{:io_lib.format("~.4f", [relevance])} < T_adj=#{:io_lib.format("~.4f", [t_adj])} (Base: #{get_base_threshold()}, Inhibit: #{:io_lib.format("~.2f", [CMS.ActivationEngine.get_global_inhibition_factor()])})")
+          # Still update last_query_context so neighbors can pulse us later
+          {:noreply, %{state | last_query_context: query_context}}
+      end
     end
   end
 
@@ -296,50 +308,79 @@ defmodule CMS.NodeActor do
     {:noreply, %{state | node: new_node}}
   end
 
+  # New activation handler with Trace and TTL loop prevention
+  # NEW: Activation handler with Refractory Period Guard
   @impl true
-  def handle_info({:activation, source_id, strength, type}, state) do
-    Logger.debug("Node #{state.node.id} received #{type} activation from #{source_id} (strength: #{strength})")
+  def handle_info({:activation, source_id, strength, type, trace, ttl}, state) do
+    if is_directory?(state.node) do
+      # Directories do not participate in Spreading Activation
+      {:noreply, state}
+    else
+      # 1. LOOP PREVENTION: Trace (Stop infinite circles)
+      if MapSet.member?(trace, state.node.id) do
+        Logger.debug("[TRACE] Node #{String.slice(state.node.id, 0, 8)} already in trace, ignoring activation from #{String.slice(source_id, 0, 8)}")
+        {:noreply, state}
+      else
+        # 2. REFRACTORY GUARD (Stop Multipath Explosion)
+        now = DateTime.utc_now()
+        last = state.node.last_fired || DateTime.add(now, -3600, :second) 
+        diff_ms = DateTime.diff(now, last, :millisecond)
 
-    # threshold logic: only react if strength > inhibitory threshold
-    # For now, we use a simple threshold of 0.2
-    if strength > 0.2 do
-      # --- HIERARCHICAL PATH TRACING ---
-      # If a child pulses its parent, the parent must also pulse its parent.
-      # This enables 'Breadcrumb Retrieval' during query results.
-      if type == :child_of do
-        pulse_parent(state.node)
-      end
+        if diff_ms < 2000 do
+          {:noreply, state}
+        else
+          # 3. TTL LOOP PREVENTION
+          if ttl <= 0 do
+             Logger.debug("[TTL] Node #{String.slice(state.node.id, 0, 8)} received dead pulse (TTL=0), processing locally only")
+             process_activation_locally(source_id, strength, type, state)
+          else
+             boost = calculate_associative_boost(strength, 1.0, type, :default)
 
-      # Record activation time for Hebbian learning
-      now = System.monotonic_time(:millisecond)
-      new_activation_times = Map.put(state.last_activation_times, source_id, now)
+             local_relevance = 
+               if state.last_query_context do
+                  node_text = state.node.head.label || ""
+                  query_text = Map.get(state.last_query_context, :query_text, "")
+                  calculate_relevance_score(state.node.head.embedding, state.last_query_context.query_vector, node_text, query_text)
+               else
+                  0.0
+               end
 
-      # --- NEUROPLASTICITY: SELECTIVE HEBBIAN LEARNING ---
-      # Trigger firing if strongly activated (Spatial Summation)
-      if strength > 0.7 do
-        GenServer.cast(self(), :fire)
-        
-        # Reward the node that activated us (ONLY if semantic)
-        if is_semantic_type?(type) do
-          send_hebbian_feedback(source_id, state.node.id)
+             total_score = local_relevance + boost
+             inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
+             t_adj = calculate_adjusted_threshold(get_base_threshold(), inhibition, state.node.head.internal_state)
+
+             if total_score >= t_adj do
+                Logger.info("Node #{state.node.id} Firing! (S=#{:io_lib.format("~.4f", [total_score])} > T=#{:io_lib.format("~.4f", [t_adj])})")
+                
+                new_trace = MapSet.put(trace, state.node.id)
+                new_ttl = ttl - 1
+                new_node = %{state.node | last_fired: now}
+                
+                GenServer.cast(self(), {:fire_with_config, new_trace, new_ttl})
+                
+                if is_semantic_type?(type) do
+                  send_hebbian_feedback(source_id, state.node.id)
+                  delta = boost * 0.1
+                  region_id = CMS.SemanticRegion.compute_region_hash(state.node.head.embedding, state.node.head.embedding_model_version)
+                  CMS.RegionalHebbianBuffer.buffer_update(source_id, [{state.node.id, delta}], region_id)
+                end
+
+                new_times = Map.put(state.last_activation_times, source_id, System.monotonic_time(:millisecond))
+                {:noreply, %{state | node: new_node, last_activation_times: new_times, metabolic_energy: 1.0}}
+             else
+                {:noreply, state}
+             end
+          end
         end
       end
-
-      # Metabolic Recovery: Activation provides a slight energy boost
-      new_energy = min(1.0, state.metabolic_energy + 0.05)
-
-      # Buffer Hebbian update (ONLY if semantic)
-      if is_semantic_type?(type) do
-        # "Cells that fire together, wire together"
-        delta = strength * 0.05
-        pseudo_region = :erlang.phash2(source_id, 256)
-        CMS.RegionalHebbianBuffer.buffer_update(source_id, [{state.node.id, delta}], pseudo_region)
-      end
-
-      {:noreply, %{state | last_activation_times: new_activation_times, metabolic_energy: new_energy}}
-    else
-      {:noreply, state}
     end
+  end
+
+  # Backward compatibility: Old activation messages without trace/TTL
+  @impl true
+  def handle_info({:activation, source_id, strength, type}, state) do
+    # Default: empty trace, TTL = 1
+    handle_info({:activation, source_id, strength, type, MapSet.new(), 1}, state)
   end
 
   # Backwards compatibility for untagged activations
@@ -378,9 +419,10 @@ defmodule CMS.NodeActor do
 
   @impl true
   def handle_info(:metabolic_decay, state) do
-    # 3% energy decay every 30s
-    new_energy = max(0.2, state.metabolic_energy * 0.97)
-    Process.send_after(self(), :metabolic_decay, 30_000)
+    # User Request: "All nodes must be highly active at all times"
+    # Instead of decaying, we maintain max energy (1.0)
+    new_energy = 1.0
+    Process.send_after(self(), :metabolic_decay, 600_000)
     {:noreply, %{state | metabolic_energy: new_energy}}
   end
 
@@ -392,28 +434,74 @@ defmodule CMS.NodeActor do
   # --- Private ---
 
   defp autonomous_query_evaluation(ctx, state) do
-    # 1. Semantic Similarity (Dot Product between tensors)
-    # Both embedding and query_vector are expected to be Nx tensors
-    similarity = Nx.dot(state.node.head.embedding, ctx.query_vector) |> Nx.to_number()
-
-    # 3. Global Inhibition Adjustment (Factor 1.0 -> 0.1)
-    inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
+    # 1. Relevance Score ($R$) - Dot Product with String Fallback
+    node_text = state.node.head.label || ""
+    query_text = Map.get(ctx, :query_text, "")
     
-    # Formula: adjusted_threshold = (base_threshold / max(0.1, inhibition_factor)) * metabolic_cost
-    # Metabolic Cost: 1.0 (Full Energy) -> 1.0 multiplier, 0.5 Energy -> 1.2 multiplier
-    metabolic_cost = 1.0 + ((1.0 - state.metabolic_energy) * 0.5)
+    relevance = calculate_relevance_score(state.node.head.embedding, ctx.query_vector, node_text, query_text)
 
-    final_threshold = (ctx.min_relevance / max(0.1, inhibition)) * metabolic_cost
+    # 2. Adjusted Threshold ($T_{adj}$) - Metabolic & Global Inhibition
+    base_threshold = get_base_threshold()
+    inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
+    t_adj = calculate_adjusted_threshold(base_threshold, inhibition, state.node.head.internal_state)
 
-    if similarity >= final_threshold do
-      Logger.debug("--- Node #{state.node.id} Decision: RELEVANCE FOUND (#{:io_lib.format("~.4f", [similarity])} >= #{:io_lib.format("~.4f", [final_threshold])}) -> ACTION: FIRING")
-      {:fire, similarity}
+    if relevance >= t_adj do
+      {:fire, relevance}
     else
-      if similarity > (final_threshold * 0.5) do
-         Logger.debug("--- Node #{state.node.id} Decision: LOW RELEVANCE (#{:io_lib.format("~.4f", [similarity])} < #{:io_lib.format("~.4f", [final_threshold])}) -> ACTION: IGNORED")
-      end
-      :ignore
+      {:ignore, relevance, t_adj}
     end
+  end
+
+  # --- FORMULAS ---
+
+  # Formula A: Relevance (R)
+  defp calculate_relevance_score(embedding, query_vector, node_text, query_text) do
+    try do
+      Nx.dot(embedding, query_vector) |> Nx.to_number()
+    rescue
+      _ -> 
+        # Fallback: Jaro Distance similarity
+        if node_text != "" and query_text != "" do
+          String.jaro_distance(node_text, query_text)
+        else
+          0.0
+        end
+    end
+  end
+
+  # Formula B: Adjusted Threshold (T_adj)
+  defp calculate_adjusted_threshold(t_base, i_global, _internal_state) do
+    # FIX: When i_global is 1.0 (Healthy), we want the threshold to be t_base (0.7).
+    # When i_global drops to 0.1 (Congested), the threshold should rise (e.g., 7.0) to stop firing.
+    safe_inhibition = max(0.1, i_global)
+    t_base / safe_inhibition
+  end
+
+  # Formula C: Associative Boost
+  # Note: 'strength' here effectively combines R_origin * W_edge (passed from sender).
+  # We apply the receiver-side scaling.
+  # We treat 'w_edge' as 1.0 here because it was already applied by sender, or we can assume 'strength' is R_origin and we need to fetch weight?
+  # The code in fire() does: target_strength = base_strength * edge.weight
+  # So input 'r_origin_times_weight' is strictly correct.
+  defp calculate_associative_boost(r_origin_times_weight, _redundant_weight, type, context_mode) do
+    f_type = case type do
+      :dependency -> 1.0
+      :causes -> 0.9
+      :relates_to -> 0.8
+      :semantic -> 0.8
+      :contradicts -> 0.2
+      :child_of -> 1.0
+      _ -> 0.5
+    end
+
+    f_context = case context_mode do
+      :brainstorm -> 1.5
+      _ -> 1.0
+    end
+
+    synaptic_resistance = 0.8
+
+    r_origin_times_weight * f_type * f_context * synaptic_resistance
   end
 
   defp persist_node(new_node) do
@@ -445,18 +533,53 @@ defmodule CMS.NodeActor do
     end
   end
 
-  defp pulse_parent(node) do
-    case Enum.find(node.tail.hierarchical, fn e -> e.type == :child_of end) do
-      %CMS.Edge{target_node_id: parent_id, weight: weight} ->
-        case Registry.lookup(CMS.NodeRegistry, parent_id) do
-          [{pid, _}] -> 
-            # High strength pulse to ensure the parent wakes up and propagates
-            send(pid, {:activation, node.id, 0.9 * weight, :child_of})
-          _ -> :ok
-        end
-      _ -> :ok
+  # Helper: Process activation locally without propagating (for dead pulses)
+  defp process_activation_locally(source_id, strength, type, state) do
+    # Calculate boost but don't propagate
+    boost = calculate_associative_boost(strength, 1.0, type, :default)
+    
+    # Local relevance check
+    local_relevance = 
+      if state.last_query_context do
+         node_text = state.node.head.label || ""
+         query_text = Map.get(state.last_query_context, :query_text, "")
+         calculate_relevance_score(state.node.head.embedding, state.last_query_context.query_vector, node_text, query_text)
+      else
+         0.0
+      end
+
+    total_score = local_relevance + boost
+
+    # Calculate dynamic threshold
+    inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
+    t_adj = calculate_adjusted_threshold(get_base_threshold(), inhibition, state.node.head.internal_state)
+
+    # If score is high enough, just report to coordinator but don't fire/propagate
+    if total_score >= t_adj and state.last_query_context do
+      Logger.info("Node #{state.node.id} LOCAL activation (dead pulse): S_total=#{:io_lib.format("~.4f", [total_score])} >= T_adj=#{:io_lib.format("~.4f", [t_adj])}")
+      
+      # Report to coordinator if in query mode
+      CMS.QueryCoordinator.node_fired(
+        state.last_query_context.query_id, 
+        state.node.id, 
+        total_score, 
+        state.node
+      )
+      
+      # Hebbian feedback but no propagation
+      if is_semantic_type?(type) do
+        send_hebbian_feedback(source_id, state.node.id)
+      end
+      
+      new_times = Map.put(state.last_activation_times, source_id, System.monotonic_time(:millisecond))
+      {:noreply, %{state | last_activation_times: new_times, metabolic_energy: 1.0}}
+    else
+      Logger.debug("Node #{state.node.id} IGNORED dead pulse: S_total=#{:io_lib.format("~.4f", [total_score])} < T_adj=#{:io_lib.format("~.4f", [t_adj])}")
+      {:noreply, state}
     end
   end
+
+
 
   defp is_semantic_type?(type) do
     type in [:relates_to, :semantic, :contradicts, :supersedes, :superseded_by]
@@ -468,5 +591,17 @@ defmodule CMS.NodeActor do
   def terminate(_reason, state) do
     CMS.Core.Logic.DriftIndex.unregister(state.node.id)
     :ok
+  end
+
+  # Helper to fetch threshold dynamically (Defaults to 0.7 if not set)
+  defp get_base_threshold do
+    Application.get_env(:acn_cms, :node_base_threshold, 0.7)
+  end
+
+  defp is_directory?(node) do
+    mime = node.body.data_ledger.mime_definition
+    type = Map.get(node.provenance || %{}, "type")
+    
+    mime == "inode/directory" or type == "directory"
   end
 end

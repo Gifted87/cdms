@@ -1,5 +1,6 @@
 defmodule CMS.Application do
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
@@ -17,6 +18,19 @@ defmodule CMS.Application do
     
     # 1. Start Mnesia (Safe now, either matches current arch or is fresh)
     :mnesia.start()
+    
+    # 1.5 Wait for tables to be fully loaded before proceeding
+    # This prevents race conditions where code tries to access tables during load
+    tables = [:epoch_log_index, :nodes_table, :vector_index]
+    case :mnesia.wait_for_tables(tables, 30_000) do
+      :ok -> :ok
+      {:timeout, bad_tabs} -> 
+        Logger.warning("Mnesia tables timeout during load: #{inspect(bad_tabs)}")
+        :ok
+      {:error, reason} ->
+        Logger.error("Mnesia wait_for_tables failed: #{inspect(reason)}")
+        :ok
+    end
   
     children = [
       # 0. Infrastructure Guard (Process Monitor for Lock Cleanup)

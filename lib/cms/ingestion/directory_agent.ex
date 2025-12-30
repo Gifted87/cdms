@@ -106,7 +106,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
                  _ -> nil
                end
             end
-          end, max_concurrency: 5, timeout: :infinity)
+          end, max_concurrency: 1, timeout: :infinity)
           |> Enum.map(fn {:ok, result} -> result end)
           |> Enum.filter(& &1)
 

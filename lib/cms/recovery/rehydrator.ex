@@ -15,9 +15,14 @@ defmodule CMS.Recovery.Rehydrator do
 
     # 2. Re-Initialize Infrastructure
     Logger.info("REHYDRATOR: Temporarily starting persistence layer for restoration...")
-    
-    # Ensure mnesia is stopped before we try starting it for re-init
+
+    # Stop any running mnesia instance to ensure clean state
     :mnesia.stop()
+    
+    # Use the Bootloader safe logic to create tables before we start writing
+    CMS.Persistence.Bootloader.ensure_schema_and_tables()
+
+    # Now start Mnesia for the actual rehydration writing
     :mnesia.start()
     
     # We use start_link to ensure they are up
@@ -35,11 +40,23 @@ defmodule CMS.Recovery.Rehydrator do
 
     Logger.info("REHYDRATOR: Found #{length(epoch_files)} epoch files. Starting reconstruction stream.")
     
-    stats = Enum.reduce(epoch_files, %{nodes: 0, vectors: 0, errors: 0}, fn path, acc ->
+    # Initialize batch state
+    initial_acc = %{
+      nodes: 0, 
+      vectors: 0, 
+      errors: 0, 
+      pending_vectors: %{},   # %{model => [{node_id, tensor}]}
+      batch_size: 0
+    }
+
+    final_stats = Enum.reduce(epoch_files, initial_acc, fn path, acc ->
        process_epoch_file(path, acc)
     end)
     
-    Logger.info("REHYDRATOR: Reconstruction Complete. Stats: #{inspect(stats)}")
+    # Flush remaining vectors
+    flush_vectors(final_stats.pending_vectors)
+    
+    Logger.info("REHYDRATOR: Reconstruction Complete. Stats: Nodes=#{final_stats.nodes}, Vectors=#{final_stats.vectors}, Errors=#{final_stats.errors}")
     
     # 4. Commit to Disk
     VectorRouter.persist()
@@ -93,8 +110,13 @@ defmodule CMS.Recovery.Rehydrator do
      id = node_map["id"]
      head = node_map["head"]
      
-     acc = Map.update!(acc, :nodes, &(&1 + 1))
+     new_nodes_count = acc.nodes + 1
      
+     # Progress Log
+     if rem(new_nodes_count, 500) == 0 do
+       Logger.info("REHYDRATOR: Processed #{new_nodes_count} nodes...")
+     end
+
      # Reconstruct the full Node struct to ensure we have all fields
      # We use the Hydrator's logic which handles Base64 decoding, tuples, etc.
      try do
@@ -110,14 +132,29 @@ defmodule CMS.Recovery.Rehydrator do
        
        :mnesia.dirty_write({:nodes_table, node.id, path_hash, parent_uuid, node.head, node.body, node.tail, node.body.data_ledger.chrono_stack, node.provenance, node.antenna})
 
+       acc = %{acc | nodes: new_nodes_count}
+
        if head do
          embedding_list = head["embedding"]
-         model = head["embedding_model_version"]
+         model = head["embedding_model_version"] || "nomic-embed-text" # Default fallback
          
          if embedding_list do
            tensor = Nx.tensor(embedding_list)
-           VectorRouter.add_embedding(id, tensor, model)
-           Map.update!(acc, :vectors, &(&1 + 1))
+           
+           # Queue for batching
+           current_batch = Map.get(acc.pending_vectors, model, [])
+           new_batch = [{id, tensor} | current_batch]
+           
+           new_pending = Map.put(acc.pending_vectors, model, new_batch)
+           new_batch_size = acc.batch_size + 1
+           
+           # Check flush threshold
+           if new_batch_size >= 500 do
+              flush_vectors(new_pending)
+              %{acc | pending_vectors: %{}, batch_size: 0, vectors: acc.vectors + new_batch_size}
+           else
+              %{acc | pending_vectors: new_pending, batch_size: new_batch_size}
+           end
          else
            acc
          end
@@ -129,5 +166,14 @@ defmodule CMS.Recovery.Rehydrator do
          Logger.error("REHYDRATOR: Failed to restore node #{id}: #{inspect(e)}")
          Map.update!(acc, :errors, &(&1 + 1))
      end
+  end
+
+  defp flush_vectors(pending_map) do
+    Enum.each(pending_map, fn {model, items} ->
+      if length(items) > 0 do
+        Logger.debug("REHYDRATOR: Flushing batch of #{length(items)} vectors for #{model}...")
+        VectorRouter.bulk_add(items, model)
+      end
+    end)
   end
 end

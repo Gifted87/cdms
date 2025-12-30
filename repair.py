@@ -1,35 +1,48 @@
 import os
+import sys
 
-# Base directory for the CDMS codebase
-BASE_DIR = os.path.abspath("lib/cms")
+# CORRECT PATH based on your feedback
+TARGET_FILE = "/home/gifted/cdms/lib/cms/agents/node_actor.ex"
 
-def patch_file(file_path, search_pattern, replace_pattern):
-    full_path = os.path.join(BASE_DIR, file_path)
-    if not os.path.exists(full_path):
-        print(f"❌ File not found: {full_path}")
-        return
+def patch_node_actor():
+    if not os.path.exists(TARGET_FILE):
+        print(f"❌ Error: Could not find {TARGET_FILE}")
+        sys.exit(1)
 
-    with open(full_path, 'r', encoding='utf-8') as f:
+    print(f"Reading {TARGET_FILE}...")
+    
+    with open(TARGET_FILE, 'r', encoding='utf-8') as f:
         content = f.read()
 
+    # We look for the entry point of the activation handler
+    search_pattern = "if strength > 0.2 do"
+    
+    # We replace it with a check against the last_fired timestamp
+    # 1. Get current time
+    # 2. Diff against state.node.last_fired
+    # 3. Only proceed if diff > 2000ms
+    replacement_pattern = """# REFRACTORY PERIOD GUARD
+    # Absolute Lockout: 2000ms. Stops positive feedback loops.
+    now = DateTime.utc_now()
+    last = state.node.last_fired || DateTime.add(now, -3600, :second)
+    diff_ms = DateTime.diff(now, last, :millisecond)
+
+    if strength > 0.2 and diff_ms > 2000 do"""
+
+    if "REFRACTORY PERIOD GUARD" in content:
+        print("⚠️  File is already patched.")
+        return
+
     if search_pattern in content:
-        new_content = content.replace(search_pattern, replace_pattern)
-        with open(full_path, 'w', encoding='utf-8') as f:
+        new_content = content.replace(search_pattern, replacement_pattern)
+        
+        with open(TARGET_FILE, 'w', encoding='utf-8') as f:
             f.write(new_content)
-        print(f"✅ Patched {file_path}")
+            
+        print(f"✅ Successfully patched {TARGET_FILE}")
+        print("   -> Applied 2000ms loop breaker logic.")
     else:
-        print(f"⚠️  Pattern not found in {file_path}. It might already be patched.")
+        print(f"❌ Error: Could not find the pattern '{search_pattern}' in the file.")
 
-# ------------------------------------------------------------------------------
-# FIX: DirectoryAgent (Enable Parallelism)
-# ------------------------------------------------------------------------------
-# We increase max_concurrency from 1 to 5.
-# This allows 5 files to be ingested simultaneously.
-agent_path = "ingestion/directory_agent.ex"
-
-# Find the serialized stream configuration
-search_serial = "max_concurrency: 1, timeout: :infinity)"
-# Replace with parallel configuration
-replace_parallel = "max_concurrency: 5, timeout: :infinity)"
-
-patch_file(agent_path, search_serial, replace_parallel)
+if __name__ == "__main__":
+    patch_node_actor()

@@ -35,6 +35,8 @@ defmodule CMS.BroadcastCoordinator do
     # Get all active node PIDs and broadcast the query to each one
     all_pids = CMS.NodeSupervisor.get_all_active_node_pids()
     
+    Logger.info("[BROADCAST] Query #{String.slice(query_context.query_id, 0, 8)} → #{length(all_pids)} nodes")
+    
     Enum.each(all_pids, fn pid ->
       send(pid, {:query, query_context})
     end)

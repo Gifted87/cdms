@@ -92,7 +92,12 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
     # Step 4: Vectorization (Python ML Bridge)
     # Replaces OllamaBridge.embed with CMS.Tool.Embedder.generate
-    vector_input = "#{Path.basename(path)}: #{summary}"
+    vector_input = """
+    FILE: #{Path.basename(path)}
+    SUMMARY: #{summary}
+    CONTENT:
+    #{content}
+    """
     
     # Defaults to all-MiniLM-L6-v2 in ml_bridge.py
     embedding = case Embedder.generate(vector_input, @embedding_model) do

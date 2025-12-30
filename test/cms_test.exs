@@ -5,4 +5,5 @@ defmodule CmsTest do
   test "greets the world" do
     assert Cms.hello() == :world
   end
+
 end
