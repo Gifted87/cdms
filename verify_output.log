@@ -1,0 +1,30 @@
+
+17:01:35.437 [info] >>> Starting CREMS Anatomy Verification <<<
+
+17:01:35.451 [info] --- Verifying ID Derivation ---
+
+17:01:35.454 [info] [PASS] ID Generation is deterministic and sensitive to timestamp.
+
+17:01:35.454 [info] Derived ID: 7bd237eb325e00d696c9bcee42be7c6520639ad5e8ef4bd2689f3440b9a92502
+
+17:01:35.454 [info] --- Verifying NodeHead Autosnap logic ---
+
+17:01:35.691 [info] [PASS] Low Stress: Fired correctly.
+
+17:01:35.691 [info] [PASS] High Stress: Fired on poor match (Distress Call).
+
+17:01:35.691 [info] --- Verifying Antenna Gain ---
+
+17:01:35.704 [info] [PASS] Gain Calculation Correct: 2.0
+
+17:01:35.704 [info] --- Verifying NodeBody Structure ---
+
+17:01:35.704 [info] [PASS] NodeBody instantiated with correct atom/float types.
+
+17:01:35.704 [info] >>> Verification Complete <<<
+warning: unused alias ChronoStack
+  verify_crems_anatomy.exs:6
+
+warning: unused alias NodeTail
+  verify_crems_anatomy.exs:6
+

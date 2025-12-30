@@ -21,7 +21,7 @@ defmodule CMS.Application do
     
     # 1.5 Wait for tables to be fully loaded before proceeding
     # This prevents race conditions where code tries to access tables during load
-    tables = [:epoch_log_index, :nodes_table, :vector_index]
+    tables = [:epoch_log_index, :nodes_table, :crems_nodes_table, :vector_index]
     case :mnesia.wait_for_tables(tables, 30_000) do
       :ok -> :ok
       {:timeout, bad_tabs} -> 
@@ -64,6 +64,16 @@ defmodule CMS.Application do
       # 6. The Node Population
       CMS.NodeSupervisor,
 
+      # 7. CREMS Genesis Swarm (Phase 5)
+      {DynamicSupervisor, name: CREMS.Ingestion.SwarmSupervisor, strategy: :one_for_one},
+      CREMS.Ingestion.RuntimeSwarm,
+      
+      # 8. CREMS Forensics & Ghost Management (Section 8: Necrosis Protocol)
+      CREMS.Persistence.EpochLog,  # Cold storage for ghost node archives
+      CREMS.Agents.GhostScavenger, # Automated scavenging of expired ghosts
+      
+      # Symbiosis (Phase 6)
+      CREMS.Symbiosis.DefinitionLinker,
       {CMS.Web, port: Application.get_env(:acn_cms, :web_port, 4000)}
     ]
 

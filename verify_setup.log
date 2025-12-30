@@ -1,0 +1,171 @@
+Compiling 3 files (.ex)
+Generated acn_cms app
+17:07:10.582 [warning] [InstanceGuard] Found stale lock from dead PID 4739. Cleaning up.
+17:07:10.590 [info] CMS Bootloader: Checking Persistence Integrity...
+17:07:10.590 [info] CMS Bootloader: Ensuring Schema and Tables...
+17:07:10.946 [info] Mnesia table crems_nodes_table created.
+17:07:10.953 [notice] Application mnesia exited: :stopped
+17:07:10.998 [warning] CMS Bootloader: Identity Verified but Mnesia Schema is DAMAGED or INCOMPATIBLE.
+17:07:10.999 [warning] CMS Bootloader: Initiating Emergency REHYDRATION.
+17:07:11.005 [warning] REHYDRATOR: Beginning Scorched Earth Protocol...
+17:07:11.010 [info] REHYDRATOR: Burnt Mnesia and Vector Caches.
+17:07:11.010 [info] REHYDRATOR: Temporarily starting persistence layer for restoration...
+17:07:11.010 [info] CMS Bootloader: Ensuring Schema and Tables...
+17:07:11.032 [info] Mnesia schema created.
+17:07:11.056 [info] Mnesia table epoch_log_index created.
+17:07:11.066 [info] Mnesia table nodes_table created.
+17:07:11.072 [info] Mnesia table crems_nodes_table created.
+17:07:11.079 [info] Mnesia table vector_index created.
+17:07:11.087 [notice] Application mnesia exited: :stopped
+17:07:11.130 [notice] Application mnesia exited: :stopped
+17:07:11.135 [info] Mnesia schema already exists.
+17:07:11.195 [info] Started new Epoch Log: priv/data/epochs/epoch_2025-12-30T16-07-11.183147Z_10eaf8f3-c1d6-4337-bf83-199e5d2e067b.jsonl
+17:07:11.219 [info] CMS.VectorRouter: No index found for nomic-embed-text. Creating fresh.
+17:07:11.257 [info] CMS.VectorRouter: No index found for all-MiniLM-L6-v2. Creating fresh.
+17:07:11.273 [info] CMS.VectorRouter: No index found for custom-bert-v1. Creating fresh.
+17:07:11.289 [info] REHYDRATOR: Found 14 epoch files. Starting reconstruction stream.
+17:07:12.321 [debug] REHYDRATOR: Flushing batch of 373 vectors for all-MiniLM-L6-v2...
+17:07:12.392 [info] REHYDRATOR: Reconstruction Complete. Stats: Nodes=373, Vectors=0, Errors=0
+17:07:12.429 [notice] Application mnesia exited: :stopped
+17:07:12.429 [info] REHYDRATOR: Protocol Complete. System ready for fresh boot.
+17:07:12.804 [info] [InstanceGuard] Lock acquired on /home/gifted/cdms/memory_cartridges/default
+17:07:12.835 [notice] Application mnesia exited: :stopped
+17:07:12.838 [info] Mnesia schema already exists.
+17:07:12.863 [info] Started new Epoch Log: priv/data/epochs/epoch_2025-12-30T16-07-12.863026Z_a5c00702-4be7-402d-a2b8-6186ad357849.jsonl
+17:07:12.880 [info] CMS.VectorRouter: Loaded existing index for nomic-embed-text (88 items).
+17:07:12.890 [info] CMS.VectorRouter: Loaded existing index for all-MiniLM-L6-v2 (88 items).
+17:07:12.899 [info] CMS.VectorRouter: Loaded existing index for custom-bert-v1 (88 items).
+17:07:12.899 [info] SymbolicIndex: Path registry initialized
+17:07:12.904 [info] CMS.ActivationEngine started. Global Factor: 1.0
+17:07:12.911 [info] Hebbian Shard 0 started. ETS: :hebbian_buffer_0
+17:07:12.911 [info] Hebbian Shard 1 started. ETS: :hebbian_buffer_1
+17:07:12.912 [info] Hebbian Shard 2 started. ETS: :hebbian_buffer_2
+17:07:12.912 [info] Hebbian Shard 3 started. ETS: :hebbian_buffer_3
+17:07:12.913 [info] Hebbian Shard 4 started. ETS: :hebbian_buffer_4
+17:07:12.914 [info] Hebbian Shard 5 started. ETS: :hebbian_buffer_5
+17:07:12.914 [info] Hebbian Shard 6 started. ETS: :hebbian_buffer_6
+17:07:12.915 [info] Hebbian Shard 7 started. ETS: :hebbian_buffer_7
+17:07:12.915 [info] Hebbian Shard 8 started. ETS: :hebbian_buffer_8
+17:07:12.916 [info] Hebbian Shard 9 started. ETS: :hebbian_buffer_9
+17:07:12.916 [info] Hebbian Shard 10 started. ETS: :hebbian_buffer_10
+17:07:12.917 [info] Hebbian Shard 11 started. ETS: :hebbian_buffer_11
+17:07:12.917 [info] Hebbian Shard 12 started. ETS: :hebbian_buffer_12
+17:07:12.918 [info] Hebbian Shard 13 started. ETS: :hebbian_buffer_13
+17:07:12.918 [info] Hebbian Shard 14 started. ETS: :hebbian_buffer_14
+17:07:12.919 [info] Hebbian Shard 15 started. ETS: :hebbian_buffer_15
+17:07:12.920 [info] Hebbian Shard 16 started. ETS: :hebbian_buffer_16
+17:07:12.920 [info] Hebbian Shard 17 started. ETS: :hebbian_buffer_17
+17:07:12.920 [info] Hebbian Shard 18 started. ETS: :hebbian_buffer_18
+17:07:12.921 [info] Hebbian Shard 19 started. ETS: :hebbian_buffer_19
+17:07:12.921 [info] Hebbian Shard 20 started. ETS: :hebbian_buffer_20
+17:07:12.922 [info] Hebbian Shard 21 started. ETS: :hebbian_buffer_21
+17:07:12.922 [info] Hebbian Shard 22 started. ETS: :hebbian_buffer_22
+17:07:12.922 [info] Hebbian Shard 23 started. ETS: :hebbian_buffer_23
+17:07:12.923 [info] Hebbian Shard 24 started. ETS: :hebbian_buffer_24
+17:07:12.924 [info] Hebbian Shard 25 started. ETS: :hebbian_buffer_25
+17:07:12.924 [info] Hebbian Shard 26 started. ETS: :hebbian_buffer_26
+17:07:12.924 [info] Hebbian Shard 27 started. ETS: :hebbian_buffer_27
+17:07:12.925 [info] Hebbian Shard 28 started. ETS: :hebbian_buffer_28
+17:07:12.925 [info] Hebbian Shard 29 started. ETS: :hebbian_buffer_29
+17:07:12.926 [info] Hebbian Shard 30 started. ETS: :hebbian_buffer_30
+17:07:12.926 [info] Hebbian Shard 31 started. ETS: :hebbian_buffer_31
+17:07:12.927 [info] CMS.Web API started on port 4000
+17:07:13.048 [info] HYDRATOR: Beginning CDMS Hydration Protocol...
+17:07:13.049 [info] HYDRATOR: Found 15 files. Loading nodes...
+17:07:13.556 [info] HYDRATOR: Loaded 88 nodes from disk. Spawning processes...
+17:07:13.574 [debug] HYDRATOR: Registered node 74781fcc-4466-5b67-8d07-85c620eb9a8c with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/process_linker.ex
+17:07:13.576 [debug] HYDRATOR: Registered node 3039e070-b02e-50f4-94da-5d92329e19cb with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/tools/New Text Document.txt
+17:07:13.577 [debug] HYDRATOR: Registered node 4d292074-a63f-5723-a13c-dfb4e5fb14da with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/tools/embedder.ex
+17:07:13.578 [debug] HYDRATOR: Registered node fb5a5fac-59f6-5b48-b66a-e66131b0d744 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cdms
+17:07:13.581 [debug] HYDRATOR: Registered node ba3da11e-4706-5bac-835a-3621a8e7c514 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/persistence
+17:07:13.584 [debug] HYDRATOR: Registered node 1e2f7d4a-2dd7-564e-b44b-a6d7c802d089 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/edge_generator.ex
+17:07:13.586 [debug] HYDRATOR: Registered node 1c885357-1d55-5b6c-8989-de3d74ea5b98 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/crawler.ex
+17:07:13.587 [debug] HYDRATOR: Registered node 15993b7d-f6c3-5280-b244-7b95bd3a04ab with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/data_tail.ex
+17:07:13.588 [debug] HYDRATOR: Registered node 30a51c06-b721-5117-a753-bfbf22487d7e with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/node_head.ex
+17:07:13.589 [debug] HYDRATOR: Registered node 1de99c5e-6fed-503d-b5ed-d8a0641b9be5 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/node_antenna.ex
+17:07:13.592 [debug] HYDRATOR: Registered node a7047d98-978c-537b-8857-c6b0534cbe89 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/persistence/temporal_query_engine.ex
+17:07:13.593 [debug] HYDRATOR: Registered node 12ec4093-7794-5703-903d-a7b770398ada with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/symbolic_index.ex
+17:07:13.594 [debug] HYDRATOR: Registered node 8116028c-875a-53cc-a367-613ae2a158f6 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/recovery
+17:07:13.595 [debug] HYDRATOR: Registered node 7d78caf6-48fc-5970-8441-6f0dba3d29df with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/orchestrator.ex
+17:07:13.597 [debug] HYDRATOR: Registered node 656896e4-5b17-5d23-89cd-4310fbcb7850 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/agents/query_coordinator.ex
+17:07:13.598 [debug] HYDRATOR: Registered node 8ea1a7b2-6427-5e56-9129-321a58c34298 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/node_factory.ex
+17:07:13.600 [debug] HYDRATOR: Registered node ae53d243-659d-5f69-b7e3-cd90f53c584b with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/anatomy_engine.ex
+17:07:13.601 [debug] HYDRATOR: Registered node 6054da8e-47e1-559a-bb41-e9b0861b8e2c with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/drift_index.ex
+17:07:13.605 [debug] HYDRATOR: Registered node 3fe744bf-bf87-510e-a4c3-67223fc468d8 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/semantic_region.ex
+17:07:13.606 [debug] HYDRATOR: Registered node cbd604b8-21d6-52a1-bc9d-d56682345887 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/fid_validator.ex
+17:07:13.607 [debug] HYDRATOR: Registered node def8c566-4d88-5136-8d2f-1afd5dcdea88 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/communication
+17:07:13.609 [debug] HYDRATOR: Registered node 3d0bde97-c433-5af1-947a-f6aed432b3d8 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/directory_agent.ex
+17:07:13.612 [debug] HYDRATOR: Registered node 9206c71f-7cc6-551b-9be7-45aa064075f4 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/live_wire.ex
+17:07:13.614 [debug] HYDRATOR: Registered node ffd24feb-f709-53b7-8fdc-7a4ceca47b14 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic
+17:07:13.614 [debug] HYDRATOR: Registered node a55b6648-1997-5a52-8d6a-023836dec2a4 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/json_extensions.ex
+17:07:13.615 [debug] HYDRATOR: Registered node 01c4125a-1a7e-5053-ba86-4cc028937063 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/persistence
+17:07:13.616 [debug] HYDRATOR: Registered node b2f73782-0102-529c-9ff5-bf2dfc9c3a97 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/salience_engine.ex
+17:07:13.617 [debug] HYDRATOR: Registered node bfdc65f9-048a-55ce-be77-0ee89a25740a with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms
+17:07:13.618 [debug] HYDRATOR: Registered node 5989ac37-d02c-5e3b-8a1f-aee741a8f2ab with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/physiology_engine.ex
+17:07:13.623 [debug] HYDRATOR: Registered node 0168cf1c-55c5-55aa-b2bf-3dc12615f5d5 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/interface/cms_web.ex
+17:07:13.623 [debug] HYDRATOR: Registered node 65a1231d-214d-5e18-a193-d2343a7b2f66 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/learning
+17:07:13.624 [debug] HYDRATOR: Registered node 778352d5-4615-5abc-82e5-0aedb96568f9 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/system_mixer.ex
+17:07:13.626 [debug] HYDRATOR: Registered node 7db6325e-2705-52e8-b3a8-c2be358db379 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/application.ex
+17:07:13.627 [debug] HYDRATOR: Registered node 0baa726f-a224-585d-b190-5319f588ca04 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/fractal_aperture.ex
+17:07:13.629 [debug] HYDRATOR: Registered node 6788da1b-727d-5636-a62b-5a20f67214e9 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/recovery/hydrator.ex
+17:07:13.632 [debug] HYDRATOR: Registered node ebb4b7f1-899f-5fe5-a7ae-f21bbcbfeae8 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib
+17:07:13.634 [debug] HYDRATOR: Registered node e83f68f9-223b-5565-9a6b-6a5f167f6eaf with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/node_body.ex
+17:07:13.636 [debug] HYDRATOR: Registered node b6b2f83c-2c65-5479-92cf-fb2263a9a86a with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/connectome_scanner.ex
+17:07:13.637 [debug] HYDRATOR: Registered node abd29178-52b9-522e-904b-0d1047e9b3b7 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/interface/query_router.ex
+17:07:13.638 [debug] HYDRATOR: Registered node 41f02f76-0da7-58fa-b5f7-8d718d8430e7 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services
+17:07:13.640 [debug] HYDRATOR: Registered node 1ea4565f-b72f-58e1-b055-b815d616e169 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/logic/fid_parser.ex
+17:07:13.640 [debug] HYDRATOR: Registered node c285d26a-ff1d-528b-8ccc-fc1e5379addc with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/meta_node.ex
+17:07:13.642 [debug] HYDRATOR: Registered node b4803775-2518-5eaa-bb75-7e7045903616 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/shredder.ex
+17:07:13.643 [debug] HYDRATOR: Registered node 62410575-9060-53ee-aeb1-bd4444c86de5 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/edge.ex
+17:07:13.644 [debug] HYDRATOR: Registered node e95a04c1-fbcf-5ead-bf8e-fc344efd3d34 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/persistence/identity.ex
+17:07:13.645 [debug] HYDRATOR: Registered node f434e96d-a13f-5135-9ffc-80d5345e2e27 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion
+17:07:13.648 [debug] HYDRATOR: Registered node f8493b21-cd6c-5b46-8aa4-42fd20467e8f with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/mix/tasks/cdms.genesis.ex
+17:07:13.648 [debug] HYDRATOR: Registered node 59208d90-8fe7-51fe-a6bb-cefe011780ee with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/security.ex
+17:07:13.649 [debug] HYDRATOR: Registered node 6226d9f4-93af-5941-8f3b-9445e981f021 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/persistence/bootloader.ex
+17:07:13.650 [debug] HYDRATOR: Registered node cba32a3b-d7ee-5a2f-a585-0ce36c860b7e with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/genesis_crawler.ex
+17:07:13.651 [debug] HYDRATOR: Registered node c19efa9d-fad4-5cdb-8b0c-2ab49b505f42 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/node_drift_manager.ex
+17:07:13.652 [debug] HYDRATOR: Registered node b3e7f1af-f0a9-581f-a896-2edd4fe143ec with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs
+17:07:13.653 [debug] HYDRATOR: Registered node 8f5e72dc-de97-52d3-9531-b5f7e6369bfa with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/learning/regional_hebbian_buffer.ex
+17:07:13.655 [debug] HYDRATOR: Registered node a7fcd659-9568-5b00-9444-25d8d5543b87 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/agents/node_supervisor.ex
+17:07:13.655 [debug] HYDRATOR: Registered node 51379a41-ca47-5d9e-9e41-2f9e2a97751d with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/interface
+17:07:13.656 [debug] HYDRATOR: Registered node 4079645f0675268ee8dc9f1ec0915645d19db94f989fbbb12158cdb1066ef2ff with LiveWire and SymbolicIndex: system://meta/conflict
+17:07:13.656 [debug] HYDRATOR: Registered node d3ed0936-2c49-57d0-b5c1-b9616e22c48e with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/mix/tasks
+17:07:13.657 [debug] HYDRATOR: Registered node c4eb8e18-871e-51cc-b2ec-4a8ad9ac88c7 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/exclusion_cortex.ex
+17:07:13.658 [debug] HYDRATOR: Registered node 8496fb5b-c95f-5985-83f1-d7d0d211b1d5 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/node_tail.ex
+17:07:13.659 [debug] HYDRATOR: Registered node 207d5ce9-8cab-58a5-ae24-d3950191d837 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core
+17:07:13.660 [debug] HYDRATOR: Registered node 5744e576-38c2-5346-b24c-c082092e4c88 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/file_ingestion_task.ex
+17:07:13.661 [debug] HYDRATOR: Registered node b0864afa-948c-539e-a9b0-609a0682ae6b with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/recovery/rehydrator.ex
+17:07:13.662 [debug] HYDRATOR: Registered node 11b56509-4f46-5853-a195-ef6022426d8a with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/mime_guard.ex
+17:07:13.663 [debug] HYDRATOR: Registered node 554efe31-dc56-54de-894a-336fd4ceaea8 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/agents/activation_engine.ex
+17:07:13.666 [debug] HYDRATOR: Registered node 0487e65a-b44c-5a11-b504-510568eb8b56 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/chrono_stack.ex
+17:07:13.668 [debug] HYDRATOR: Registered node 6feafe6d-d4ff-59eb-9469-fda553d12414 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/persistence/vector_router.ex
+17:07:13.669 [debug] HYDRATOR: Registered node 76c49f34-3384-5d48-a3fe-24af4fe4bbf5 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/node.ex
+17:07:13.670 [debug] HYDRATOR: Registered node 4601bd38-f963-5e8d-bd4b-30e722aac777 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/learning/hebbian_buffer_supervisor.ex
+17:07:13.672 [debug] HYDRATOR: Registered node 21e3a4cf-f211-52c4-8b7a-42c1e48ef8f1 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/ingestion_engine.ex
+17:07:13.672 [debug] HYDRATOR: Registered node ccff8cfe-daff-5981-a233-d703cf369194 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/mix
+17:07:13.673 [debug] HYDRATOR: Registered node 398ee864-c517-51db-8fab-90da51e11a1e with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cdms/console.ex
+17:07:13.676 [debug] HYDRATOR: Registered node 302a04d6-f7b1-5828-94d8-64f8446480fa with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/agents/node_actor.ex
+17:07:13.679 [debug] HYDRATOR: Registered node 28a100b7-1d65-5a0c-9205-877b26c43dfd with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/persistence/epoch_manager.ex
+17:07:13.681 [debug] HYDRATOR: Registered node 26dcd795-80c1-5b7a-8098-aaa651c02626 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/communication/bus_pipeline.ex
+17:07:13.682 [debug] HYDRATOR: Registered node 1f1b6f67-2f5b-503b-8e73-2b24c6b31b79 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/tools/live_monitor.ex
+17:07:13.684 [debug] HYDRATOR: Registered node a60448b7-0445-54ac-baca-c9a7ad4659ac with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/data_body_payload.ex
+17:07:13.685 [debug] HYDRATOR: Registered node cf722f98-0302-54dc-8fd6-b2ff97095496 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/identity.ex
+17:07:13.687 [debug] HYDRATOR: Registered node 802a559e-ce43-5035-a3e7-1361580bab65 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/communication/broadcast_coordinator.ex
+17:07:13.688 [debug] HYDRATOR: Registered node df4e7f99-5837-590d-8a3a-3a16f8ce5534 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/core/structs/data_head.ex
+17:07:13.688 [debug] HYDRATOR: Registered node 45adc0e8-9dba-5375-973b-00194118b811 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/agents
+17:07:13.690 [debug] HYDRATOR: Registered node 42f14aa9-aba0-500e-a8e7-bc4da9d7fca6 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/tools
+17:07:13.691 [debug] HYDRATOR: Registered node 8c6b5f8c-d404-5cc8-a24a-0d429a29a656 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/services/query_triage.ex
+17:07:13.692 [debug] HYDRATOR: Registered node 8e74c147-42de-5847-b2ee-58a788d83521 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/instance_guard.ex
+17:07:13.694 [debug] HYDRATOR: Registered node 6d0e6a5f-feb1-5419-bab0-d73b89dda624 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/persistence/log_appender.ex
+17:07:13.695 [debug] HYDRATOR: Registered node d74b99fe-48e9-56ed-b082-23596ba33201 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/ingestion/triage_protocol.ex
+17:07:13.696 [debug] HYDRATOR: Registered node 752b1e6b-af16-559e-b6f9-18b152dff6c8 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms.ex
+17:07:13.698 [debug] HYDRATOR: Registered node e15e9ba5-74cb-5a71-a54d-22b51f7278bc with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure/ollama_bridge.ex
+17:07:13.699 [debug] HYDRATOR: Registered node 1948ec62-5015-5a8d-89de-b6f15a89fcf5 with LiveWire and SymbolicIndex: /home/gifted/cdms/lib/cms/infrastructure
+17:07:13.785 [info] >>> Starting CREMS Setup Verification <<<
+17:07:13.785 [info] --- Verifying Mnesia Table Existence ---
+17:07:13.785 [info] [PASS] Table :crems_nodes_table exists.
+17:07:13.785 [info] [PASS] Storage type is :ram_copies.
+17:07:13.785 [info] --- Verifying Identity Generator ---
+17:07:13.786 [info] [PASS] Full metadata fact generation correct.
+17:07:13.786 [info] [PASS] Partial metadata fact generation correct.
+17:07:13.786 [info] >>> Verification Complete <<<

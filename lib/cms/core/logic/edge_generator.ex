@@ -125,7 +125,7 @@ defmodule CMS.Core.Logic.EdgeGenerator do
       if score >= conflict_threshold do
         # --- SPECIAL CASE: DIALECTICAL MERGE ---
         # 1. Add Contradicts Link to Peer
-        acc = %{acc | tail: NodeTail.add_edge(acc.tail, Edge.new(target_id, :contradicts, 1.0))}
+        acc = add_edge_to_node(acc, Edge.new(target_id, :contradicts, 1.0))
         
         # 2. Spawn MetaNode for the conflict
         context = %{node_a: my_id, node_b: target_id, similarity: score}
@@ -137,16 +137,37 @@ defmodule CMS.Core.Logic.EdgeGenerator do
              
              # 3. Add Semantic Link to MetaNode
              edge_to_meta = Edge.new(meta_node.id, :semantic, 0.9)
-             %{acc | tail: NodeTail.add_edge(acc.tail, edge_to_meta)}
+             add_edge_to_node(acc, edge_to_meta)
           _ ->
              acc
         end
       else
         # Normal Semantic Relationship
         edge = Edge.new(target_id, :semantic, score)
-        %{acc | tail: NodeTail.add_edge(acc.tail, edge)}
+        add_edge_to_node(acc, edge)
       end
     end)
+  end
+
+  # ... (prime_candidates and cosine_similarity remain) ...
+
+  # --- Helper for Polymorphic Node Support ---
+
+  defp add_edge_to_node(%CMS.Node{} = node, edge) do
+    %{node | tail: CMS.NodeTail.add_edge(node.tail, edge)}
+  end
+
+  defp add_edge_to_node(%CREMS.Node{} = node, edge) do
+    # Convert CMS.Edge to CREMS Tuple format
+    # Spec: {:semantically_related_to, target_uuid, score}
+    # Note: We map 'contradicts' and 'semantic' to this tuple, preserving score/weight.
+    tuple = {:semantically_related_to, edge.target_node_id, edge.weight}
+    
+    # CREMS.NodeTail uses :semantic_edges list
+    new_semantic = [tuple | node.tail.semantic_edges]
+    new_tail = %{node.tail | semantic_edges: new_semantic}
+    
+    %{node | tail: new_tail}
   end
 
   @doc """

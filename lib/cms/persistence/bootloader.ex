@@ -6,6 +6,7 @@ defmodule CMS.Persistence.Bootloader do
   # Table Definitions
   @table_name :epoch_log_index
   @nodes_table :nodes_table
+  @crems_nodes_table :crems_nodes_table
   @vector_index :vector_index
 
   def run do
@@ -107,6 +108,7 @@ defmodule CMS.Persistence.Bootloader do
     # 6. Create Tables
     create_table_if_missing(@table_name, [attributes: [:id, :start_time, :end_time, :file_path], disc_copies: nodes])
     create_table_if_missing(@nodes_table, [attributes: [:uuid, :path_hash, :parent_uuid, :head_data, :body_data, :tail_data, :chrono_stack, :provenance, :antenna_data], disc_copies: nodes])
+    create_table_if_missing(@crems_nodes_table, [attributes: [:id, :head, :body, :tail, :antenna], ram_copies: nodes])
     create_table_if_missing(@vector_index, [attributes: [:id, :vector], disc_copies: nodes, type: :ordered_set])
 
     # 7. Stop Mnesia so Application can start it cleanly

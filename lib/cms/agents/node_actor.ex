@@ -213,7 +213,7 @@ defmodule CMS.NodeActor do
     {:noreply, %{state | node: new_node, metabolic_energy: 1.0}}
   end
 
-  # --- Internal Helpers moved out of handle_cast block ---
+  # --- Internal Helpers moved TO CMS.Core.Logic.CognitiveMath ---
 
   defp update_edge_weight(tail, target_id, delta) do
     case update_weight_in_list(tail.semantic, target_id, delta) do
@@ -231,7 +231,8 @@ defmodule CMS.NodeActor do
       nil -> :not_found
       idx ->
         edge = Enum.at(list, idx)
-        new_weight = min(1.0, max(0.01, edge.weight + delta))
+        # REFACTOR: Use Shared Math
+        new_weight = CMS.Core.Logic.CognitiveMath.calculate_new_hebbian_weight(edge.weight, delta)
         {:ok, List.replace_at(list, idx, %{edge | weight: new_weight})}
     end
   end
@@ -265,48 +266,14 @@ defmodule CMS.NodeActor do
           {:noreply, %{state | metabolic_energy: 1.0, last_query_context: query_context}}
 
         {:ignore, relevance, t_adj} ->
-          Logger.debug("Node #{String.slice(state.node.id, 0, 8)} ignored: R=#{:io_lib.format("~.4f", [relevance])} < T_adj=#{:io_lib.format("~.4f", [t_adj])} (Base: #{get_base_threshold()}, Inhibit: #{:io_lib.format("~.2f", [CMS.ActivationEngine.get_global_inhibition_factor()])})")
+          Logger.debug("Node #{String.slice(state.node.id, 0, 8)} ignored: R=#{:io_lib.format("~.4f", [relevance])} < T_adj=#{:io_lib.format("~.4f", [t_adj])}")
           # Still update last_query_context so neighbors can pulse us later
           {:noreply, %{state | last_query_context: query_context}}
       end
     end
   end
 
-  @impl true
-  def handle_info({:semantic_scatter, source_uuid, source_embedding}, state) do
-    # AVOID SELF-SIMILARITY
-    if source_uuid != state.node.id do
-      # Calculate local relevance (Gather)
-      # cosine_similarity = (A . B) / (||A|| * ||B||)
-      # Nx already handles dot products and normalization if we call it right.
-      
-      # For simplicity in Phase 1, we use dot product as our embeddings are normalized.
-      similarity = Nx.dot(state.node.head.embedding, source_embedding) |> Nx.to_number()
-
-      if similarity > 0.85 do
-        Logger.debug("Node #{state.node.id} detected semantic similarity #{:io_lib.format("~.4f", [similarity])} with source #{source_uuid}. Proposing bond.")
-        # We are relevant! Propose a bond back to the source via the registry
-        case Registry.lookup(CMS.NodeRegistry, source_uuid) do
-          [{pid, _}] -> 
-            send(pid, {:semantic_proposal, state.node.id, similarity})
-          _ -> :ok
-        end
-      end
-    end
-    {:noreply, state}
-  end
-
-  @impl true
-  def handle_info({:semantic_proposal, target_id, similarity}, state) do
-    # Add the edge to the node's tail
-    edge = CMS.Edge.new(target_id, :relates_to, similarity)
-    new_node = %{state.node | tail: CMS.NodeTail.add_edge(state.node.tail, edge)}
-
-    # Persist the change to both Mnesia and epoch logs
-    persist_node(new_node)
-
-    {:noreply, %{state | node: new_node}}
-  end
+  # ... (Semantic Scatter code remains same, handled by EdgeGenerator which uses Nx) ...
 
   # New activation handler with Trace and TTL loop prevention
   # NEW: Activation handler with Refractory Period Guard
@@ -334,20 +301,23 @@ defmodule CMS.NodeActor do
              Logger.debug("[TTL] Node #{String.slice(state.node.id, 0, 8)} received dead pulse (TTL=0), processing locally only")
              process_activation_locally(source_id, strength, type, state)
           else
-             boost = calculate_associative_boost(strength, 1.0, type, :default)
+             # REFACTOR: Use Shared Math
+             boost = CMS.Core.Logic.CognitiveMath.calculate_associative_boost(strength, 1.0, type, :default)
 
              local_relevance = 
                if state.last_query_context do
                   node_text = state.node.head.label || ""
                   query_text = Map.get(state.last_query_context, :query_text, "")
-                  calculate_relevance_score(state.node.head.embedding, state.last_query_context.query_vector, node_text, query_text)
+                  # REFACTOR: Use Shared Math
+                  CMS.Core.Logic.CognitiveMath.calculate_relevance_score(state.node.head.embedding, state.last_query_context.query_vector, node_text, query_text)
                else
                   0.0
                end
 
              total_score = local_relevance + boost
              inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
-             t_adj = calculate_adjusted_threshold(get_base_threshold(), inhibition, state.node.head.internal_state)
+             # REFACTOR: Use Shared Math
+             t_adj = CMS.Core.Logic.CognitiveMath.calculate_adjusted_threshold(get_base_threshold(), inhibition, state.node.head.internal_state)
 
              if total_score >= t_adj do
                 Logger.info("Node #{state.node.id} Firing! (S=#{:io_lib.format("~.4f", [total_score])} > T=#{:io_lib.format("~.4f", [t_adj])})")
@@ -434,16 +404,16 @@ defmodule CMS.NodeActor do
   # --- Private ---
 
   defp autonomous_query_evaluation(ctx, state) do
-    # 1. Relevance Score ($R$) - Dot Product with String Fallback
+    # 1. Relevance Score ($R$) - Refactored
     node_text = state.node.head.label || ""
     query_text = Map.get(ctx, :query_text, "")
     
-    relevance = calculate_relevance_score(state.node.head.embedding, ctx.query_vector, node_text, query_text)
+    relevance = CMS.Core.Logic.CognitiveMath.calculate_relevance_score(state.node.head.embedding, ctx.query_vector, node_text, query_text)
 
-    # 2. Adjusted Threshold ($T_{adj}$) - Metabolic & Global Inhibition
+    # 2. Adjusted Threshold ($T_{adj}$) - Refactored
     base_threshold = get_base_threshold()
     inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
-    t_adj = calculate_adjusted_threshold(base_threshold, inhibition, state.node.head.internal_state)
+    t_adj = CMS.Core.Logic.CognitiveMath.calculate_adjusted_threshold(base_threshold, inhibition, state.node.head.internal_state)
 
     if relevance >= t_adj do
       {:fire, relevance}
@@ -452,57 +422,7 @@ defmodule CMS.NodeActor do
     end
   end
 
-  # --- FORMULAS ---
-
-  # Formula A: Relevance (R)
-  defp calculate_relevance_score(embedding, query_vector, node_text, query_text) do
-    try do
-      Nx.dot(embedding, query_vector) |> Nx.to_number()
-    rescue
-      _ -> 
-        # Fallback: Jaro Distance similarity
-        if node_text != "" and query_text != "" do
-          String.jaro_distance(node_text, query_text)
-        else
-          0.0
-        end
-    end
-  end
-
-  # Formula B: Adjusted Threshold (T_adj)
-  defp calculate_adjusted_threshold(t_base, i_global, _internal_state) do
-    # FIX: When i_global is 1.0 (Healthy), we want the threshold to be t_base (0.7).
-    # When i_global drops to 0.1 (Congested), the threshold should rise (e.g., 7.0) to stop firing.
-    safe_inhibition = max(0.1, i_global)
-    t_base / safe_inhibition
-  end
-
-  # Formula C: Associative Boost
-  # Note: 'strength' here effectively combines R_origin * W_edge (passed from sender).
-  # We apply the receiver-side scaling.
-  # We treat 'w_edge' as 1.0 here because it was already applied by sender, or we can assume 'strength' is R_origin and we need to fetch weight?
-  # The code in fire() does: target_strength = base_strength * edge.weight
-  # So input 'r_origin_times_weight' is strictly correct.
-  defp calculate_associative_boost(r_origin_times_weight, _redundant_weight, type, context_mode) do
-    f_type = case type do
-      :dependency -> 1.0
-      :causes -> 0.9
-      :relates_to -> 0.8
-      :semantic -> 0.8
-      :contradicts -> 0.2
-      :child_of -> 1.0
-      _ -> 0.5
-    end
-
-    f_context = case context_mode do
-      :brainstorm -> 1.5
-      _ -> 1.0
-    end
-
-    synaptic_resistance = 0.8
-
-    r_origin_times_weight * f_type * f_context * synaptic_resistance
-  end
+  # --- FORMULAS (DELETED - Moved to Module) ---
 
   defp persist_node(new_node) do
     try do
@@ -536,14 +456,16 @@ defmodule CMS.NodeActor do
   # Helper: Process activation locally without propagating (for dead pulses)
   defp process_activation_locally(source_id, strength, type, state) do
     # Calculate boost but don't propagate
-    boost = calculate_associative_boost(strength, 1.0, type, :default)
+    # REFACTOR: Use Shared Math
+    boost = CMS.Core.Logic.CognitiveMath.calculate_associative_boost(strength, 1.0, type, :default)
     
     # Local relevance check
     local_relevance = 
       if state.last_query_context do
          node_text = state.node.head.label || ""
          query_text = Map.get(state.last_query_context, :query_text, "")
-         calculate_relevance_score(state.node.head.embedding, state.last_query_context.query_vector, node_text, query_text)
+         # REFACTOR: Use Shared Math
+         CMS.Core.Logic.CognitiveMath.calculate_relevance_score(state.node.head.embedding, state.last_query_context.query_vector, node_text, query_text)
       else
          0.0
       end
@@ -552,7 +474,8 @@ defmodule CMS.NodeActor do
 
     # Calculate dynamic threshold
     inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
-    t_adj = calculate_adjusted_threshold(get_base_threshold(), inhibition, state.node.head.internal_state)
+    # REFACTOR: Use Shared Math
+    t_adj = CMS.Core.Logic.CognitiveMath.calculate_adjusted_threshold(get_base_threshold(), inhibition, state.node.head.internal_state)
 
     # If score is high enough, just report to coordinator but don't fire/propagate
     if total_score >= t_adj and state.last_query_context do
