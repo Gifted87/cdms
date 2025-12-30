@@ -595,7 +595,7 @@ defmodule CMS.NodeActor do
 
   # Helper to fetch threshold dynamically (Defaults to 0.7 if not set)
   defp get_base_threshold do
-    Application.get_env(:acn_cms, :node_base_threshold, 0.7)
+    Application.get_env(:acn_cms, :node_base_threshold, 0.25)
   end
 
   defp is_directory?(node) do

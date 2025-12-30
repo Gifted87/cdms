@@ -3992,13 +3992,15 @@ defmodule CMS.Web.Router do
     end
     
     # Calculate size
-    size = if content do
-      byte_size(content)
-    else
-      case node do
-        %{body: %{data_ledger: %{size: s}}} when is_integer(s) -> s
-        _ -> 0
-      end
+    size = cond do
+      is_binary(content) -> byte_size(content)
+      is_nil(content) ->
+        case node do
+          %{body: %{data_ledger: %{size: s}}} when is_integer(s) -> s
+          _ -> 0
+        end
+      true -> # Structured content (e.g. Meta-Node list)
+        byte_size(Jason.encode!(content))
     end
     
     # Get history info
@@ -4114,6 +4116,25 @@ defmodule CMS.Web.Router do
   end
   defp format_timestamp(_), do: "unknown"
 
+  defp is_directory?(node) do
+    # Check mime type in data_ledger or provenance
+    mime = case node do
+      %CMS.Node{body: %{data_ledger: %{mime_definition: mime}}} -> mime
+      %{body: %{data_ledger: %{mime_definition: mime}}} -> mime
+      %{"body" => %{"data_ledger" => %{"mime_definition" => mime}}} -> mime
+      _ -> nil
+    end
+
+    type = case node do
+      %CMS.Node{provenance: %{"type" => t}} -> t
+      %{provenance: %{"type" => t}} -> t
+      %{"provenance" => %{"type" => t}} -> t
+      _ -> nil
+    end
+
+    mime == "inode/directory" or type == "directory"
+  end
+
   # ----------------------------------------------------------------------------
   # 1. INGESTION API
   # ----------------------------------------------------------------------------
@@ -4210,11 +4231,17 @@ defmodule CMS.Web.Router do
       
       case CMS.QueryTriage.execute(query_string, opts) do
         {:ok, mode_used, results} ->
-          formatted = Enum.map(results, fn
-            %{node: node, score: score} -> build_cognitive_artifact(score, node)
-            %{} = node -> build_cognitive_artifact(1.0, node)
-            node -> build_cognitive_artifact(1.0, node)
-          end)
+          formatted = 
+            results
+            |> Enum.reject(fn
+              %{node: node} -> is_directory?(node)
+              node -> is_directory?(node)
+            end)
+            |> Enum.map(fn
+              %{node: node, score: score} -> build_cognitive_artifact(score, node)
+              %{} = node -> build_cognitive_artifact(1.0, node)
+              node -> build_cognitive_artifact(1.0, node)
+            end)
           
           send_json(conn, 200, %{
             mode_used: mode_used,
@@ -4361,6 +4388,7 @@ defmodule CMS.Web.Router do
     # Transform tuples {score, node} to Maps %{score: s, node: n} for JSON encoding
     trimmed_results =
       results
+      |> Enum.reject(fn {_score, node} -> is_directory?(node) end)
       |> Enum.map(fn {score, node} -> build_cognitive_artifact(score, node) end)
 
     send_json(conn, 200, %{
@@ -4392,6 +4420,7 @@ defmodule CMS.Web.Router do
             end
           end)
           |> Enum.filter(fn {score, _} -> score >= min_relevance end)
+          |> Enum.reject(fn {_score, node} -> is_directory?(node) end)
           |> Enum.sort_by(fn {score, _} -> score end, :desc)
           |> Enum.take(max_results)
           |> Enum.map(fn {score, node} -> build_cognitive_artifact(score, node) end)
@@ -5669,8 +5698,6 @@ defmodule CMS.NodeActor do
 
   defstruct [:node, :hydrated?, :last_activation_times, :metabolic_energy, :region_id, :last_query_context]
 
-  @base_threshold 0.7
-
   # --- Client API ---
 
   def fire(uuid) do
@@ -5900,31 +5927,36 @@ defmodule CMS.NodeActor do
 
   @impl true
   def handle_info({:query, query_context}, state) do
-    # Decentralized Path: Every node evaluates its own relevance
-    Logger.info("[QUERY] Node #{String.slice(state.node.id, 0, 8)} evaluating query #{String.slice(query_context.query_id, 0, 8)}...")
+    if is_directory?(state.node) do
+      # Directories are structural, they don't participate in cognitive search
+      {:noreply, state}
+    else
+      # Decentralized Path: Every node evaluates its own relevance
+      Logger.info("[QUERY] Node #{String.slice(state.node.id, 0, 8)} evaluating query #{String.slice(query_context.query_id, 0, 8)}...")
     
-    case autonomous_query_evaluation(query_context, state) do
-      {:fire, relevance} ->
-        Logger.info("[FIRE] Node #{String.slice(state.node.id, 0, 8)} FIRES! Relevance: #{:io_lib.format("~.4f", [relevance])} | Path: #{state.node.body.data_ledger.physical_symlink}")
-        
-        # 1. Report result to the coordinator
-        CMS.QueryCoordinator.node_fired(
-          query_context.query_id, 
-          state.node.id, 
-          relevance, 
-          state.node
-        )
-        
-        # 2. Trigger active pulse (Spreading Activation)
-        GenServer.cast(self(), :fire)
-        
-        # Always maintain full energy
-        {:noreply, %{state | metabolic_energy: 1.0, last_query_context: query_context}}
+      case autonomous_query_evaluation(query_context, state) do
+        {:fire, relevance} ->
+          Logger.info("[FIRE] Node #{String.slice(state.node.id, 0, 8)} FIRES! Relevance: #{:io_lib.format("~.4f", [relevance])} | Path: #{state.node.body.data_ledger.physical_symlink}")
+          
+          # 1. Report result to the coordinator
+          CMS.QueryCoordinator.node_fired(
+            query_context.query_id, 
+            state.node.id, 
+            relevance, 
+            state.node
+          )
+          
+          # 2. Trigger active pulse (Spreading Activation)
+          GenServer.cast(self(), :fire)
+          
+          # Always maintain full energy
+          {:noreply, %{state | metabolic_energy: 1.0, last_query_context: query_context}}
 
-      {:ignore, relevance, t_adj} ->
-        Logger.debug("Node #{String.slice(state.node.id, 0, 8)} ignored: R=#{:io_lib.format("~.4f", [relevance])} < T_adj=#{:io_lib.format("~.4f", [t_adj])} (Base: #{@base_threshold}, Inhibit: #{:io_lib.format("~.2f", [CMS.ActivationEngine.get_global_inhibition_factor()])})")
-        # Still update last_query_context so neighbors can pulse us later
-        {:noreply, %{state | last_query_context: query_context}}
+        {:ignore, relevance, t_adj} ->
+          Logger.debug("Node #{String.slice(state.node.id, 0, 8)} ignored: R=#{:io_lib.format("~.4f", [relevance])} < T_adj=#{:io_lib.format("~.4f", [t_adj])} (Base: #{get_base_threshold()}, Inhibit: #{:io_lib.format("~.2f", [CMS.ActivationEngine.get_global_inhibition_factor()])})")
+          # Still update last_query_context so neighbors can pulse us later
+          {:noreply, %{state | last_query_context: query_context}}
+      end
     end
   end
 
@@ -5965,71 +5997,68 @@ defmodule CMS.NodeActor do
   end
 
   # New activation handler with Trace and TTL loop prevention
+  # NEW: Activation handler with Refractory Period Guard
   @impl true
   def handle_info({:activation, source_id, strength, type, trace, ttl}, state) do
-    # LOOP PREVENTION CHECK 1: Trace (Have I already fired in this chain?)
-    if MapSet.member?(trace, state.node.id) do
-      Logger.debug("[TRACE] Node #{String.slice(state.node.id, 0, 8)} already in trace, ignoring activation from #{String.slice(source_id, 0, 8)}")
+    if is_directory?(state.node) do
+      # Directories do not participate in Spreading Activation
       {:noreply, state}
     else
-      # LOOP PREVENTION CHECK 2: TTL (Is this chain too deep?)
-      if ttl <= 0 do
-        Logger.debug("[TTL] Node #{String.slice(state.node.id, 0, 8)} received dead pulse (TTL=0), processing locally only")
-        # Process locally but DO NOT propagate
-        process_activation_locally(source_id, strength, type, state)
+      # 1. LOOP PREVENTION: Trace (Stop infinite circles)
+      if MapSet.member?(trace, state.node.id) do
+        Logger.debug("[TRACE] Node #{String.slice(state.node.id, 0, 8)} already in trace, ignoring activation from #{String.slice(source_id, 0, 8)}")
+        {:noreply, state}
       else
-        # Normal processing with propagation
-        Logger.debug("Node #{state.node.id} received #{type} activation from #{source_id} (Strength: #{strength}, TTL: #{ttl})")
-        
-        # 1. Calculate Boost (Spreading Activation Formula)
-        boost = calculate_associative_boost(strength, 1.0, type, :default)
+        # 2. REFRACTORY GUARD (Stop Multipath Explosion)
+        now = DateTime.utc_now()
+        last = state.node.last_fired || DateTime.add(now, -3600, :second) 
+        diff_ms = DateTime.diff(now, last, :millisecond)
 
-        # 2. Local Relevance check
-        local_relevance = 
-          if state.last_query_context do
-             node_text = state.node.head.label || ""
-             query_text = Map.get(state.last_query_context, :query_text, "")
-             calculate_relevance_score(state.node.head.embedding, state.last_query_context.query_vector, node_text, query_text)
-          else
-             0.0
-          end
-
-        total_score = local_relevance + boost
-
-        # 3. Calculate Dynamic Threshold ($T_{adj}$)
-        inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
-        t_adj = calculate_adjusted_threshold(@base_threshold, inhibition, state.node.head.internal_state)
-
-        # 4. Fire Condition: S_total >= T_adj
-        if total_score >= t_adj do
-           Logger.info("--- Node #{state.node.id} Secondary Fire: S_total=#{:io_lib.format("~.4f", [total_score])} (Local: #{:io_lib.format("~.4f", [local_relevance])} + Boost: #{:io_lib.format("~.4f", [boost])}) >= T_adj=#{:io_lib.format("~.4f", [t_adj])}")
-           
-           # Fire with updated trace and TTL
-           # Add self to trace before propagating
-           new_trace = MapSet.put(trace, state.node.id)
-           new_ttl = ttl - 1
-           
-           # Direct cast with config - NO STATE STORAGE RACE CONDITION
-           GenServer.cast(self(), {:fire_with_config, new_trace, new_ttl})
-           
-           # Hebbian Feedback (Reward sender)
-           if is_semantic_type?(type) do
-             send_hebbian_feedback(source_id, state.node.id)
-           end
-           
-           # Buffer Hebbian update
-           if is_semantic_type?(type) do
-             delta = boost * 0.1
-             pseudo_region = :erlang.phash2(source_id, 256)
-             CMS.RegionalHebbianBuffer.buffer_update(source_id, [{state.node.id, delta}], pseudo_region)
-           end
-
-           new_times = Map.put(state.last_activation_times, source_id, System.monotonic_time(:millisecond))
-           {:noreply, %{state | last_activation_times: new_times, metabolic_energy: 1.0}}
+        if diff_ms < 2000 do
+          {:noreply, state}
         else
-           # If it was close, we might just warm up? 
-           # For now, just ignore but maybe gain a tiny bit of metabolic "interest" (waking up)
-           {:noreply, state}
+          # 3. TTL LOOP PREVENTION
+          if ttl <= 0 do
+             Logger.debug("[TTL] Node #{String.slice(state.node.id, 0, 8)} received dead pulse (TTL=0), processing locally only")
+             process_activation_locally(source_id, strength, type, state)
+          else
+             boost = calculate_associative_boost(strength, 1.0, type, :default)
+
+             local_relevance = 
+               if state.last_query_context do
+                  node_text = state.node.head.label || ""
+                  query_text = Map.get(state.last_query_context, :query_text, "")
+                  calculate_relevance_score(state.node.head.embedding, state.last_query_context.query_vector, node_text, query_text)
+               else
+                  0.0
+               end
+
+             total_score = local_relevance + boost
+             inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
+             t_adj = calculate_adjusted_threshold(get_base_threshold(), inhibition, state.node.head.internal_state)
+
+             if total_score >= t_adj do
+                Logger.info("Node #{state.node.id} Firing! (S=#{:io_lib.format("~.4f", [total_score])} > T=#{:io_lib.format("~.4f", [t_adj])})")
+                
+                new_trace = MapSet.put(trace, state.node.id)
+                new_ttl = ttl - 1
+                new_node = %{state.node | last_fired: now}
+                
+                GenServer.cast(self(), {:fire_with_config, new_trace, new_ttl})
+                
+                if is_semantic_type?(type) do
+                  send_hebbian_feedback(source_id, state.node.id)
+                  delta = boost * 0.1
+                  region_id = CMS.SemanticRegion.compute_region_hash(state.node.head.embedding, state.node.head.embedding_model_version)
+                  CMS.RegionalHebbianBuffer.buffer_update(source_id, [{state.node.id, delta}], region_id)
+                end
+
+                new_times = Map.put(state.last_activation_times, source_id, System.monotonic_time(:millisecond))
+                {:noreply, %{state | node: new_node, last_activation_times: new_times, metabolic_energy: 1.0}}
+             else
+                {:noreply, state}
+             end
+          end
         end
       end
     end
@@ -6100,7 +6129,7 @@ defmodule CMS.NodeActor do
     relevance = calculate_relevance_score(state.node.head.embedding, ctx.query_vector, node_text, query_text)
 
     # 2. Adjusted Threshold ($T_{adj}$) - Metabolic & Global Inhibition
-    base_threshold = @base_threshold
+    base_threshold = get_base_threshold()
     inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
     t_adj = calculate_adjusted_threshold(base_threshold, inhibition, state.node.head.internal_state)
 
@@ -6129,16 +6158,11 @@ defmodule CMS.NodeActor do
   end
 
   # Formula B: Adjusted Threshold (T_adj)
-  # Formula B: Adjusted Threshold (T_adj)
   defp calculate_adjusted_threshold(t_base, i_global, _internal_state) do
-    # User Request: Metabolic state should not affect threshold anymore.
-    # Only Global Inhibition throttles.
-    # Formula: T_base / I_global
-    
-    # Formula: (1.0 - I_global) * T_base
-    # If i_global is 1.0 (Normal), threshold is 0.0 (Fully Active).
-    # If i_global is 0.1 (Max Inhibition), threshold approaches ~90% of T_base.
-    (1.0 - i_global) * t_base
+    # FIX: When i_global is 1.0 (Healthy), we want the threshold to be t_base (0.7).
+    # When i_global drops to 0.1 (Congested), the threshold should rise (e.g., 7.0) to stop firing.
+    safe_inhibition = max(0.1, i_global)
+    t_base / safe_inhibition
   end
 
   # Formula C: Associative Boost
@@ -6216,7 +6240,7 @@ defmodule CMS.NodeActor do
 
     # Calculate dynamic threshold
     inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
-    t_adj = calculate_adjusted_threshold(@base_threshold, inhibition, state.node.head.internal_state)
+    t_adj = calculate_adjusted_threshold(get_base_threshold(), inhibition, state.node.head.internal_state)
 
     # If score is high enough, just report to coordinator but don't fire/propagate
     if total_score >= t_adj and state.last_query_context do
@@ -6255,6 +6279,18 @@ defmodule CMS.NodeActor do
   def terminate(_reason, state) do
     CMS.Core.Logic.DriftIndex.unregister(state.node.id)
     :ok
+  end
+
+  # Helper to fetch threshold dynamically (Defaults to 0.7 if not set)
+  defp get_base_threshold do
+    Application.get_env(:acn_cms, :node_base_threshold, 0.7)
+  end
+
+  defp is_directory?(node) do
+    mime = node.body.data_ledger.mime_definition
+    type = Map.get(node.provenance || %{}, "type")
+    
+    mime == "inode/directory" or type == "directory"
   end
 end
 
@@ -11552,7 +11588,12 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
     # Step 4: Vectorization (Python ML Bridge)
     # Replaces OllamaBridge.embed with CMS.Tool.Embedder.generate
-    vector_input = "#{Path.basename(path)}: #{summary}"
+    vector_input = """
+    FILE: #{Path.basename(path)}
+    SUMMARY: #{summary}
+    CONTENT:
+    #{content}
+    """
     
     # Defaults to all-MiniLM-L6-v2 in ml_bridge.py
     embedding = case Embedder.generate(vector_input, @embedding_model) do
@@ -12426,7 +12467,7 @@ Folder: memory_cartridges/default
 ------------------------------------------------------------
 File: running.pid
 ------------------------------------------------------------
-152808
+172138
 
 ================================================================================
 Folder: memory_cartridges/default/mnesia_store
@@ -13021,6 +13062,112 @@ defmodule CMS.ActivationTest do
   end
 
   defp via_tuple(id), do: {:via, Registry, {CMS.NodeRegistry, id}}
+end
+
+
+------------------------------------------------------------
+File: refractory_period_test.exs
+------------------------------------------------------------
+defmodule CMS.RefractoryPeriodTest do
+  use ExUnit.Case
+  require Logger
+  alias CMS.{NodeSupervisor, Node, NodeHead, NodeBody, DataHead, DataTail, NodeAntenna}
+
+  setup do
+    # Start minimal infrastructure
+    ensure_started({Phoenix.PubSub, [name: CMS.PubSub, adapter: Phoenix.PubSub.PG2]})
+    ensure_started({Registry, [keys: :unique, name: CMS.NodeRegistry]})
+    ensure_started(CMS.ActivationEngine)
+    
+    Enum.each(0..31, fn i ->
+      ensure_started({CMS.RegionalHebbianBuffer, i})
+    end)
+    
+    ensure_started(CMS.NodeSupervisor)
+    
+    :ok
+  end
+
+  defp ensure_started(module_or_spec) do
+    case start_supervised(module_or_spec) do
+      {:ok, _} -> :ok
+      {:error, {:already_started, _}} -> :ok
+      {:error, _} = err -> err
+    end
+  end
+
+  test "Node ignores subsequent pulses within 2000ms cooldown" do
+    uuid = "refractory-node"
+    node = create_dummy_node(uuid)
+    {:ok, pid} = NodeSupervisor.start_child(node)
+    
+    # Send first activation
+    # Strength 0.9 should trigger fire (T_adj is 0.7 with default inhibition 1.0)
+    # total_score = 0.0 (local) + 0.9 * 0.8 * 1.0 * 0.8 (boost: r_origin * f_type * f_context * resistance)
+    # wait, boost calculation: 0.9 * 0.8 (semantic) * 1.0 * 0.8 = 0.576
+    # 0.576 < 0.7. It won't fire.
+    
+    # Let's use a higher strength to ensure firing for the refractory test
+    # Strength 1.1 (if possible) or just lower the threshold for the test?
+    # Actually, let's use strength 1.2 to be safe: 1.2 * 0.8 * 0.8 = 0.768 > 0.7
+    send(pid, {:activation, "sender-1", 1.2, :semantic, MapSet.new(), 1})
+    
+    # Wait for first firing to be processed
+    Process.sleep(100)
+    
+    {:ok, state1} = GenServer.call(pid, :get_state_snapshot)
+    first_fired = state1.last_fired
+    
+    # Send second activation immediately (should be ignored)
+    send(pid, {:activation, "sender-2", 1.2, :semantic, MapSet.new(), 1})
+    
+    Process.sleep(100)
+    
+    {:ok, state2} = GenServer.call(pid, :get_state_snapshot)
+    assert state2.last_fired == first_fired, "Node should NOT have updated last_fired within cooldown"
+    
+    # Wait for cooldown to expire
+    Process.sleep(2000)
+    
+    # Send third activation (should trigger firing again)
+    send(pid, {:activation, "sender-3", 1.2, :semantic, MapSet.new(), 1})
+    
+    Process.sleep(100)
+    
+    {:ok, state3} = GenServer.call(pid, :get_state_snapshot)
+    assert DateTime.compare(state3.last_fired, first_fired) == :gt, "Node should have fired again after cooldown"
+  end
+
+  test "Node does NOT fire when strength is below threshold (Healthy state)" do
+    uuid = "threshold-node"
+    node = create_dummy_node(uuid)
+    {:ok, pid} = NodeSupervisor.start_child(node)
+    
+    initial_last_fired = node.last_fired
+    
+    # Send low strength activation
+    # Strength 0.5: boost = 0.5 * 0.8 * 0.8 = 0.32. 0.32 < 0.7. Should NOT fire.
+    send(pid, {:activation, "low-sender", 0.5, :semantic, MapSet.new(), 1})
+    
+    Process.sleep(100)
+    
+    {:ok, state} = GenServer.call(pid, :get_state_snapshot)
+    assert state.last_fired == initial_last_fired, "Node should NOT have fired with low strength pulse"
+  end
+
+  defp create_dummy_node(uuid) do
+    embedding = Nx.broadcast(Nx.tensor(0.1), {384})
+    head = NodeHead.new(uuid, embedding, "test-model")
+    data_head = DataHead.new("Summary")
+    ledger = DataTail.new("/path/to/file", "hash", "text/plain", 1.0)
+    body = NodeBody.new(data_head, "Content", ledger)
+    antenna = NodeAntenna.new("/path/to/file")
+    
+    # Start with an old last_fired
+    past = DateTime.utc_now() |> DateTime.add(-3600, :second)
+    
+    Node.new(head, body, antenna, %{}, past, past)
+  end
 end
 
 
