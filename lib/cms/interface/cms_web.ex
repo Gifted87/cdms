@@ -86,6 +86,183 @@ defmodule CMS.Web.Router do
   # Returns a structured "Cognitive Artifact" with identity, anatomy, history, and relationships
   
   defp build_cognitive_artifact(score, node, _opts \\ []) when is_map(node) do
+    # Detect node type: CREMS (process) vs CDMS (file)
+    is_crems = is_crems_node?(node)
+    
+    if is_crems do
+      build_crems_artifact(score, node)
+    else
+      build_cdms_artifact(score, node)
+    end
+  end
+  
+  # Detect if node is a CREMS process node
+  defp is_crems_node?(node) do
+    case node do
+      %CREMS.Node{} -> true
+      %{body: %{natural_language_fact: _}} -> true
+      %{body: %{fid_state: _}} -> true
+      %{body: %{symbolic_link: _}} -> true
+      _ -> false
+    end
+  end
+  
+  # Build artifact for CREMS process nodes
+  defp build_crems_artifact(score, node) do
+    node_id = Map.get(node, :id)
+    
+    # Extract process info
+    fact = case node do
+      %{body: %{natural_language_fact: f}} -> f
+      _ -> "unknown process"
+    end
+    
+    # Get process name from fact
+    name = extract_process_name(fact)
+    
+    # Get PID info
+    {pid_type, pid_value} = case node do
+      %{body: %{symbolic_link: {:os_pid, os_pid}}} -> {"OS PID", os_pid}
+      %{body: %{symbolic_link: {:beam_pid, beam_pid}}} -> {"BEAM PID", inspect(beam_pid)}
+      _ -> {nil, nil}
+    end
+    
+    actor_pid = case CMS.NodeSupervisor.get_node_pid(node_id) do
+      nil -> nil
+      pid when is_pid(pid) -> inspect(pid)
+      _ -> nil
+    end
+    
+    # Get physiology state
+    fid_state = case node do
+      %{body: %{fid_state: s}} -> s
+      _ -> :unknown
+    end
+    
+    executable = case node do
+      %{body: %{executable_path: path}} when is_binary(path) -> path
+      _ -> "unknown"
+    end
+    
+    # Get physiology metrics
+    satisfaction = case node do
+      %{body: %{fid_satisfaction: s}} when is_float(s) -> Float.round(s, 3)
+      _ -> nil
+    end
+    
+    stress = case node do
+      %{body: %{fid_stress: s}} when is_float(s) -> Float.round(s, 3)
+      _ -> nil
+    end
+    
+    strain = case node do
+      %{body: %{fid_strain: s}} when is_float(s) -> Float.round(s, 3)
+      _ -> nil
+    end
+    
+    agility = case node do
+      %{body: %{fid_agility: a}} when is_float(a) -> Float.round(a, 3)
+      _ -> nil
+    end
+    
+    effect = case node do
+      %{body: %{fid_effect: e}} when is_binary(e) -> e
+      _ -> nil
+    end
+    
+    # Get tags
+    tags = case node do
+      %{body: %{semantic_tags: t}} when is_list(t) -> t
+      _ -> []
+    end
+    
+    # Get ChronoStack from data_tail
+    chrono_stack = case node do
+      %{body: %{data_tail: %{chrono_stack: cs}}} -> cs
+      _ -> %{stack_layers: []}
+    end
+    
+    stack_depth = case chrono_stack do
+      %{stack_layers: layers} when is_list(layers) -> length(layers)
+      _ -> 0
+    end
+    
+    # Get relationships
+    tail = Map.get(node, :tail)
+    relationships = if tail, do: extract_crems_relationships(tail), else: []
+    
+    # Build CREMS-specific artifact
+    %{
+      score: score,
+      node_type: "crems_process",
+      identity: %{
+        name: name,
+        node_id: node_id,
+        fact: fact,
+        executable: executable,
+        actor_pid: actor_pid
+      },
+      process: %{
+        pid_type: pid_type,
+        pid_value: pid_value,
+        state: fid_state,
+        tags: tags
+      },
+      physiology: %{
+        satisfaction: satisfaction,
+        stress: stress,
+        strain: strain,
+        agility: agility,
+        effect: effect
+      },
+      history: %{
+        chrono_stack_depth: stack_depth
+      },
+      relationships: relationships
+    }
+  end
+  
+  # Extract process name from natural language fact
+  defp extract_process_name(fact) when is_binary(fact) do
+    # Try to extract from patterns like "Process: nginx" or "System service nginx"
+    cond do
+      String.contains?(fact, "Process: ") ->
+        fact |> String.split("Process: ") |> List.last() |> String.split(" ") |> List.first()
+      String.contains?(fact, "service ") ->
+        fact |> String.split("service ") |> List.last() |> String.split(" ") |> List.first()
+      String.starts_with?(fact, "DECEASED: ") ->
+        "GHOST: " <> (fact |> String.slice(10..50))
+      true ->
+        fact |> String.slice(0..40)
+    end
+  end
+  defp extract_process_name(_), do: "unknown"
+  
+  # Extract relationships from CREMS NodeTail
+  defp extract_crems_relationships(tail) when is_map(tail) do
+    semantic = Map.get(tail, :semantic_edges) || []
+    hierarchical = Map.get(tail, :hierarchical_edges) || []
+    communication = Map.get(tail, :communication_edges) || []
+    dependency = Map.get(tail, :dependency_edges) || []
+    symbiotic = Map.get(tail, :symbiotic_edges) || []
+    
+    all_edges = semantic ++ hierarchical ++ communication ++ dependency ++ symbiotic
+    
+    Enum.map(all_edges, fn edge ->
+      %{
+        type: Map.get(edge, :type),
+        target: Map.get(edge, :target_node_id),
+        weight: Map.get(edge, :weight) || Map.get(edge, :ratio) || 1.0,
+        protocol: Map.get(edge, :protocol)
+      }
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
+    end)
+    |> Enum.take(20)
+  end
+  
+  # Build artifact for CDMS file nodes (original logic)
+  defp build_cdms_artifact(score, node) do
     # Extract node data safely using pattern matching for structs and Map.get for fallback
     node_id = case node do
       %CMS.Node{id: id} -> id
@@ -212,6 +389,7 @@ defmodule CMS.Web.Router do
     # Build the Cognitive Artifact
     artifact = %{
       score: score,
+      node_type: "cdms_file",
       identity: %{
         path: path,
         name: name,
@@ -239,6 +417,7 @@ defmodule CMS.Web.Router do
       artifact
     end
   end
+  
   
   defp extract_relationships(tail) when is_map(tail) do
     # Extract from NodeTail structure - use Map.get to avoid Access behaviour issues

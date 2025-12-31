@@ -48,13 +48,11 @@ defmodule CREMS.Physics.PhantomManifold do
   """
   def predict_saturation(current_strain, _history_buffer) do
     # Predicted Max Capacity. 
-    # Since Strain is normalized 0.0-1.0, Max is 1.0.
+    # Since Strain is normalized 0.0-1.0, Max is 1.0. 
+    # We ensure a sane floor to avoid zero-saturation math errors.
     predicted_max = 1.0
     
     # Saturation = Load / (Max * 0.9)
-    # If Load is 0.9, Saturation = 1.0 (Full).
-    # If Load is 1.0, Saturation = 1.11 (Oversaturated).
-    
     current_strain / (predicted_max * 0.9)
   end
 end

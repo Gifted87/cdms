@@ -314,7 +314,7 @@ defmodule CREMS.Agents.TrackingAgent do
                  [] -> x_intercept
                  loads -> Enum.min(loads)
                end
-             min(x_intercept, historical_floor)
+             min(x_intercept, historical_floor) |> max(1.0)
 
            _ -> 
              # Fallback to simple heuristic if data is flat or rising
@@ -323,9 +323,9 @@ defmodule CREMS.Agents.TrackingAgent do
              |> Enum.map(& &1.load) 
              |> case do
                [] -> 1.0 
-               loads -> Enum.min(loads)
+               loads -> Enum.min(loads) |> max(1.0)
              end
-         end
+          end
 
        Logger.debug("[TRACKER] Physics Derived for #{node.id}: Elasticity=#{Float.round(elasticity, 2)}, Saturation=#{Float.round(saturation_point, 2)}")
        

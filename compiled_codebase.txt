@@ -724,34 +724,39 @@ main "$@"
 File: repair.py
 ------------------------------------------------------------
 import os
+import re
 
-# Target file
-file_path = "lib/crems/persistence/epoch_log.ex"
+# CORRECT PATH found in your codebase dump
+file_path = "lib/cms/agents/node_supervisor.ex"
 
-print(f"Patching {file_path} to resolve namespace collision...")
+print(f"Patching {file_path} to ignore TrackingAgents...")
 
 try:
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # The conflicting line
-    bad_line = ":ets.new(:epoch_log_index, [:set, :public, :named_table])"
-    # The fix
-    good_line = ":ets.new(:crems_epoch_log_index, [:set, :public, :named_table])"
+    # The buggy implementation: Selects EVERYTHING (Match Spec: {_, _, _})
+    bad_regex = r"Registry\.select\(CMS\.NodeRegistry,\s*\[\{\{:_,\s*:\"\$1\",\s*:_\},\s*\[\],\s*\[:\"\$1\"\]\}\]\)"
+    
+    # The fix: Selects ONLY keys that are BINARIES (Strings)
+    # The MatchSpec means: Match {Key, PID, _}, where is_binary(Key) is true, return PID.
+    good_code = 'Registry.select(CMS.NodeRegistry, [{{:"$1", :"$2", :_}, [{:is_binary, :"$1"}], [:"$2"]}])'
 
-    if bad_line in content:
-        new_content = content.replace(bad_line, good_line)
+    if re.search(bad_regex, content):
+        new_content = re.sub(bad_regex, good_code, content)
         
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(new_content)
-        print("✅ Success! Table name changed to :crems_epoch_log_index")
-    elif good_line in content:
+            
+        print("✅ Success! NodeSupervisor patched.")
+        
+    elif good_code in content:
         print("⚠️  File is already patched.")
     else:
-        print("❌ Error: Could not find the specific line to patch. Check file manually.")
+        print("❌ Error: Could not find the Registry.select call to patch.")
 
 except FileNotFoundError:
-    print(f"❌ Error: File {file_path} not found.")
+    print(f"❌ Error: File {file_path} NOT FOUND. Please verify the file structure manually.")
 
 ================================================================================
 Folder: lib
@@ -1380,7 +1385,7 @@ defmodule CREMS.Agents.TrackingAgent do
     # Only hash relevant parts for noise rejection
     # We care about identity, state, and topology
     data_to_hash = {
-      node.body.fid_state,
+      :ignore_state, # Patched: State ignored in hash to prevent blinking loops
       node.body.natural_language_fact,
       length(node.tail.hierarchical_edges),
       length(node.tail.communication_edges)
@@ -1395,7 +1400,7 @@ defmodule CREMS.Agents.TrackingAgent do
       is_nil(old_node) -> true
       
       # 1. State Change
-      node.body.fid_state != old_node.body.fid_state -> true
+      normalize_state(node.body.fid_state) != normalize_state(old_node.body.fid_state) -> true
       
       # 2. Topology Change (New Child / Parent / Network Link)
       length(node.tail.hierarchical_edges) != length(old_node.tail.hierarchical_edges) or
@@ -1424,7 +1429,7 @@ defmodule CREMS.Agents.TrackingAgent do
         state: node.head.cognitive_state
       },
       physiology: %{
-        state: node.body.fid_state,
+        state: :ignore_state, # Patched: State ignored in hash to prevent blinking loops
         satisfaction: node.body.fid_satisfaction,
         stress: node.body.fid_stress,
         strain: node.body.fid_strain,
@@ -1467,10 +1472,10 @@ defmodule CREMS.Agents.TrackingAgent do
                {data, %{communication_count: 0}}
              phys -> 
                # Nested Standard State
-               {phys, Map.get(data, :topology, %{})}
+               {phys, Map.get(data, :topology) || %{}}
            end
 
-         telemetry = Map.get(physiology, :telemetry, %{})
+         telemetry = Map.get(physiology, :telemetry) || %{}
          
          # Safe access to communication_count (struct or map)
          comm_count = Map.get(topology, :communication_count, 0)
@@ -1513,7 +1518,7 @@ defmodule CREMS.Agents.TrackingAgent do
                  [] -> x_intercept
                  loads -> Enum.min(loads)
                end
-             min(x_intercept, historical_floor)
+             min(x_intercept, historical_floor) |> max(1.0)
 
            _ -> 
              # Fallback to simple heuristic if data is flat or rising
@@ -1522,9 +1527,9 @@ defmodule CREMS.Agents.TrackingAgent do
              |> Enum.map(& &1.load) 
              |> case do
                [] -> 1.0 
-               loads -> Enum.min(loads)
+               loads -> Enum.min(loads) |> max(1.0)
              end
-         end
+          end
 
        Logger.debug("[TRACKER] Physics Derived for #{node.id}: Elasticity=#{Float.round(elasticity, 2)}, Saturation=#{Float.round(saturation_point, 2)}")
        
@@ -1542,6 +1547,10 @@ defmodule CREMS.Agents.TrackingAgent do
   defp via_tuple(node_id) do
     {:via, Registry, {CMS.NodeRegistry, {:tracking_agent, node_id}}}
   end
+
+  # --- Patch Helpers ---
+  defp normalize_state(state) when state in [:running, :runnable, :waiting, :sleeping, :active], do: :alive
+  defp normalize_state(state), do: state
 end
 
 
@@ -1801,7 +1810,7 @@ defmodule CREMS.Agents.PhysiologySentinel do
       is_nil(last_metrics) -> -1
       
       # OOM Heuristic: High RAM and high Stress
-      last_metrics.ram_bytes > (500 * 1024 * 1024) -> 
+      (Map.get(last_metrics, :mem_kb, 0) * 1024) > (500 * 1024 * 1024) -> 
         Logger.info("[PhysiologySentinel] Inferred death: OOM Kill (SIGKILL 137)")
         137
         
@@ -1879,6 +1888,9 @@ defmodule CREMS.Agents.NodeActor do
     edge_count = length(wired_node.tail.semantic_edges)
     Logger.info("CREMS Node #{node.id} booted & wired. Region: #{region_id}. Edges: #{edge_count}")
 
+    # INSERT THIS LINE:
+    Process.send_after(self(), :late_binding_scan, 5000)
+
     {:ok, %__MODULE__{
       node: wired_node,
       last_activation_times: %{},
@@ -1922,7 +1934,7 @@ defmodule CREMS.Agents.NodeActor do
   def handle_cast(:fire, state) do
     # Primary fire starts a NEW trace
     trace = MapSet.new([state.node.id])
-    ttl = 2 # Default TTL for CREMS
+    ttl = 3 # Increased from 2 to allow 3-hop propagation
     handle_cast({:fire_with_config, trace, ttl}, state)
   end
 
@@ -1933,9 +1945,12 @@ defmodule CREMS.Agents.NodeActor do
     # 1. Decay TTL
     if ttl > 0 do
        # 2. Get Edges
-       # CREMS nodes usually have edges in 'tail'.
-       all_edges = state.node.tail.semantic_edges ++ state.node.tail.hierarchical_edges 
-       # + tail.syntactic if exists (it doesn't in CREMS)
+       tail = state.node.tail
+       all_edges = (tail.semantic_edges || []) ++ 
+                   (tail.hierarchical_edges || []) ++
+                   (tail.communication_edges || []) ++
+                   (tail.dependency_edges || []) ++
+                   (tail.symbiotic_edges || [])
        
        # 3. Strength Calculation (Shared Math)
        inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
@@ -1943,10 +1958,11 @@ defmodule CREMS.Agents.NodeActor do
        
        # 4. Propagate
        Enum.each(all_edges, fn edge ->
-         target_strength = base_strength * edge.weight 
+         weight = get_edge_weight(edge)
+         target_strength = base_strength * weight
          case Registry.lookup(CMS.NodeRegistry, edge.target_node_id) do
             [{pid, _}] -> 
-               send(pid, {:activation, state.node.id, target_strength, edge.type, trace, ttl - 1})
+               send(pid, {:activation, state.node.id, target_strength, edge.type, trace, ttl})
             [] -> :ok
          end
        end)
@@ -1954,6 +1970,8 @@ defmodule CREMS.Agents.NodeActor do
     
     {:noreply, state}
   end
+
+
 
   @impl true
   def handle_cast({:update_physics, feelings, raw_stats}, state) do
@@ -2208,7 +2226,7 @@ defmodule CREMS.Agents.NodeActor do
      {:noreply, cleared_state}
   end
   
-   @impl true
+  @impl true
   def handle_cast({:update_death_state, updates}, state) do
      # Update node body with death-related state
      new_body = %{state.node.body |
@@ -2220,6 +2238,49 @@ defmodule CREMS.Agents.NodeActor do
      new_node = %{state.node | body: new_body}
      persist_node(new_node)
      {:noreply, %{state | node: new_node}}
+  end
+
+  @impl true
+  def handle_cast({:apply_hebbian_updates, adjustments}, state) do
+    new_tail = Enum.reduce(adjustments, state.node.tail, fn {target_id, delta}, acc_tail ->
+      update_edge_weight(acc_tail, target_id, delta)
+    end)
+
+    if new_tail != state.node.tail do
+      # Logger.debug("Node #{state.node.id} applied #{length(adjustments)} Hebbian updates.")
+      new_node = %{state.node | tail: new_tail}
+      persist_node(new_node)
+      {:noreply, %{state | node: new_node}}
+    else
+      {:noreply, state}
+    end
+  end
+
+  # --- Hebbian Helpers ---
+
+  defp update_edge_weight(tail, target_id, delta) do
+    # Try semantic_edges first
+    case update_weight_in_list(tail.semantic_edges || [], target_id, delta) do
+      {:ok, new_list} -> %{tail | semantic_edges: new_list}
+      :not_found ->
+        # Try dependency_edges
+        case update_weight_in_list(tail.dependency_edges || [], target_id, delta) do
+           {:ok, new_list} -> %{tail | dependency_edges: new_list}
+           :not_found -> tail
+        end
+    end
+  end
+
+  defp update_weight_in_list(list, target_id, delta) do
+    case Enum.find_index(list, fn e -> e.target_node_id == target_id end) do
+      nil -> :not_found
+      idx ->
+        edge = Enum.at(list, idx)
+        current_weight = Map.get(edge, :weight, 1.0)
+        new_weight = CMS.Core.Logic.CognitiveMath.calculate_new_hebbian_weight(current_weight, delta)
+        new_edge = Map.put(edge, :weight, new_weight)
+        {:ok, List.replace_at(list, idx, new_edge)}
+    end
   end
   
   # Forensic Analysis Helpers
@@ -2250,6 +2311,14 @@ defmodule CREMS.Agents.NodeActor do
 
 
   # --- Infos ---
+
+  def handle_info(:late_binding_scan, state) do
+    candidates = CMS.Core.Logic.EdgeGenerator.prime_candidates(state.node.head.embedding, state.node.id)
+    Enum.each(candidates, fn {target_id, score} ->
+       GenServer.cast(self(), {:upsert_edge, :semantically_related_to, target_id, %{score: score}})
+    end)
+    {:noreply, state}
+  end
 
   # Backward compatibility: Old activation messages without trace/TTL
   @impl true
@@ -2331,6 +2400,10 @@ defmodule CREMS.Agents.NodeActor do
          relevance,
          state.node
        )
+       
+       # Trigger Spreading Activation
+       GenServer.cast(self(), :fire)
+       
        {:noreply, %{state | last_query_context: query_context}}
     else
        {:noreply, %{state | last_query_context: query_context}}
@@ -2378,7 +2451,7 @@ defmodule CREMS.Agents.NodeActor do
           delta = boost * 0.1
           CMS.RegionalHebbianBuffer.buffer_update(source_id, [{state.node.id, delta}], region_id)
           
-          # Propagate
+          # Propagate - Decrement TTL here (once per hop)
           GenServer.cast(self(), {:fire_with_config, new_trace, ttl - 1})
           
           {:noreply, state}
@@ -2389,6 +2462,10 @@ defmodule CREMS.Agents.NodeActor do
   end
 
   # --- Internal ---
+
+  defp get_edge_weight(%{weight: w}), do: w
+  defp get_edge_weight(%{ratio: r}), do: r
+  defp get_edge_weight(_), do: 1.0
 
   defp persist_node(new_node) do
     # For CREMS, we persist to Mnesia nodes_table as well for observability.
@@ -2796,7 +2873,7 @@ defmodule CREMS.Physics.Alchemist do
 
     # 2. Strain
     # Soft limit 512MB
-    max_ram = 512 * 1024 * 1024
+    max_ram = 2048 * 1024 * 1024 # Recalibrated to 2GB
     io_wait = if metrics.state == "D", do: 0.5, else: 0.0
     strain = calculate_strain(metrics.ram_bytes, max_ram, io_wait)
 
@@ -2974,20 +3051,23 @@ defmodule CREMS.Physics.PhantomEngine do
 
         # 3. Extract fid:physics_model and fid:telemetry
         physics = phantom.body.fid_physics_model || %{elasticity_coefficient: 1.0, saturation_point: 1.0}
-        telemetry = phantom.body.fid_telemetry || %{stress: 0.0, cpu_load: 0.0}
-
+        
         # 4. Apply Physics (Elasticity Logic)
         input_force = force_vector.magnitude
         # Spec: Elasticity = Phantom.body.fid:physics_model.elasticity_coefficient
         elasticity = Map.get(physics, :elasticity_coefficient, 1.0)
-        current_stress = Map.get(telemetry, :stress, 0.0)
+        
+        # FIX: Pull from top-level body field (CREMS.NodeBody.fid_stress)
+        current_stress = phantom.body.fid_stress || 0.0
 
         # Formula: Predicted_Stress = Current_Stress * (Input_Force ^ Elasticity)
         predicted_stress = current_stress * :math.pow(input_force, elasticity)
 
         # 5. Check Saturation (Crash Prediction)
-        # Predicted_Load = Phantom.body.fid:telemetry.cpu_load * Input_Force.
-        current_load = Map.get(telemetry, :cpu_load, 0.0)
+        # FIX: Pull from :cpu_usage inside telemetry (what Sentinels actually send)
+        telemetry = phantom.body.fid_telemetry || %{}
+        current_load = Map.get(telemetry, :cpu_usage, 0.0)
+        
         predicted_load = current_load * input_force
         saturation_point = Map.get(physics, :saturation_point, 1.0)
 
@@ -3107,13 +3187,11 @@ defmodule CREMS.Physics.PhantomManifold do
   """
   def predict_saturation(current_strain, _history_buffer) do
     # Predicted Max Capacity. 
-    # Since Strain is normalized 0.0-1.0, Max is 1.0.
+    # Since Strain is normalized 0.0-1.0, Max is 1.0. 
+    # We ensure a sane floor to avoid zero-saturation math errors.
     predicted_max = 1.0
     
     # Saturation = Load / (Max * 0.9)
-    # If Load is 0.9, Saturation = 1.0 (Full).
-    # If Load is 1.0, Saturation = 1.11 (Oversaturated).
-    
     current_strain / (predicted_max * 0.9)
   end
 end
@@ -4191,20 +4269,18 @@ defmodule CREMS.Ingestion.ModellingAgent do
   end
 
   defp should_skip_os_process?(pid) when is_integer(pid) do
+    # TRAVERSAL ANCHOR: Always allow PID 1
+    if pid == 1, do: false, else: do_skip_os_check(pid)
+  end
+
+  defp do_skip_os_check(pid) do
     # Skip non-essential system processes and our own tools to reduce load
     case File.read("/proc/#{pid}/comm") do
       {:ok, comm} ->
         name = String.trim(comm)
         
         # Blacklist of noisy or irrelevant processes
-        blacklist = [
-          "lsof", "pgrep", "grep", "id", "sh", "bash", "ps", "top", "htop",
-          "systemd", "kworker", "ksoftirqd", "rcu_sched", "rcu_bh", "migration",
-          "watchdog", "cpuhp", "kauditd", "khungtaskd", "oom_reaper", "writeback",
-          "kcompactd0", "ksmd", "khugepaged", "kintegrityd", "kdevtmpfs", "netns",
-          "kworker/u", "kthreadd", "idle_inject", "pipewire", "dbus-daemon",
-          "acms.sh", "test_api"
-        ]
+        blacklist = [] # FILTER DISABLED BY USER
         
         is_blacklisted = Enum.any?(blacklist, fn b -> String.contains?(name, b) end)
         
@@ -4221,7 +4297,50 @@ defmodule CREMS.Ingestion.ModellingAgent do
 
   defp should_skip_os_process?(_), do: false
 
+  
+  # --- STRICT FILTER: GENSERVERS ONLY ---
+  # --- DEEP INTROSPECTION FILTER ---
   defp should_skip_erlang_process?(pid) do
+    # 1. First check the infrastructure blacklist (Safety)
+    if check_infrastructure_blacklist(pid) do
+      true
+    else
+      # 2. Then check if it is a Significant OTP Behaviour (GenServer, Supervisor, Agent)
+      not is_significant_process?(pid)
+    end
+  end
+
+  defp is_significant_process?(pid) do
+    # :proc_lib.translate_initial_call is CRITICAL. 
+    # Without it, we only see {:proc_lib, :init_p, 5} instead of {MyApp.Server, ...}
+    case :proc_lib.translate_initial_call(pid) do
+      {module, _, _} -> is_behavioural_module?(module)
+      _ -> false
+    end
+  end
+
+  defp is_behavioural_module?(module) do
+    try do
+      if Code.ensure_loaded?(module) do
+        # Get behaviours. Elixir stores them in :behaviour (list), Erlang often same.
+        attribs = module.module_info(:attributes)
+        behaviours = Keyword.get(attribs, :behaviour, [])
+        
+        # Targets: GenServer, Supervisor, Agent (and their Erlang lowercase equivalents)
+        targets = [GenServer, :gen_server, Supervisor, :supervisor, Agent, :agent]
+        
+        Enum.any?(targets, fn t -> t in behaviours end)
+      else
+        false
+      end
+    rescue
+      _ -> false
+    end
+  end
+  
+  # --- Infrastructure Blacklist (Renamed/Preserved) ---
+  defp check_infrastructure_blacklist(pid) do
+
     # Skip CREMS infrastructure to prevent infinite modeling cascade
     case Process.info(pid, [:registered_name, :initial_call, :dictionary]) do
       nil -> 
@@ -6172,6 +6291,183 @@ defmodule CMS.Web.Router do
   # Returns a structured "Cognitive Artifact" with identity, anatomy, history, and relationships
   
   defp build_cognitive_artifact(score, node, _opts \\ []) when is_map(node) do
+    # Detect node type: CREMS (process) vs CDMS (file)
+    is_crems = is_crems_node?(node)
+    
+    if is_crems do
+      build_crems_artifact(score, node)
+    else
+      build_cdms_artifact(score, node)
+    end
+  end
+  
+  # Detect if node is a CREMS process node
+  defp is_crems_node?(node) do
+    case node do
+      %CREMS.Node{} -> true
+      %{body: %{natural_language_fact: _}} -> true
+      %{body: %{fid_state: _}} -> true
+      %{body: %{symbolic_link: _}} -> true
+      _ -> false
+    end
+  end
+  
+  # Build artifact for CREMS process nodes
+  defp build_crems_artifact(score, node) do
+    node_id = Map.get(node, :id)
+    
+    # Extract process info
+    fact = case node do
+      %{body: %{natural_language_fact: f}} -> f
+      _ -> "unknown process"
+    end
+    
+    # Get process name from fact
+    name = extract_process_name(fact)
+    
+    # Get PID info
+    {pid_type, pid_value} = case node do
+      %{body: %{symbolic_link: {:os_pid, os_pid}}} -> {"OS PID", os_pid}
+      %{body: %{symbolic_link: {:beam_pid, beam_pid}}} -> {"BEAM PID", inspect(beam_pid)}
+      _ -> {nil, nil}
+    end
+    
+    actor_pid = case CMS.NodeSupervisor.get_node_pid(node_id) do
+      nil -> nil
+      pid when is_pid(pid) -> inspect(pid)
+      _ -> nil
+    end
+    
+    # Get physiology state
+    fid_state = case node do
+      %{body: %{fid_state: s}} -> s
+      _ -> :unknown
+    end
+    
+    executable = case node do
+      %{body: %{executable_path: path}} when is_binary(path) -> path
+      _ -> "unknown"
+    end
+    
+    # Get physiology metrics
+    satisfaction = case node do
+      %{body: %{fid_satisfaction: s}} when is_float(s) -> Float.round(s, 3)
+      _ -> nil
+    end
+    
+    stress = case node do
+      %{body: %{fid_stress: s}} when is_float(s) -> Float.round(s, 3)
+      _ -> nil
+    end
+    
+    strain = case node do
+      %{body: %{fid_strain: s}} when is_float(s) -> Float.round(s, 3)
+      _ -> nil
+    end
+    
+    agility = case node do
+      %{body: %{fid_agility: a}} when is_float(a) -> Float.round(a, 3)
+      _ -> nil
+    end
+    
+    effect = case node do
+      %{body: %{fid_effect: e}} when is_binary(e) -> e
+      _ -> nil
+    end
+    
+    # Get tags
+    tags = case node do
+      %{body: %{semantic_tags: t}} when is_list(t) -> t
+      _ -> []
+    end
+    
+    # Get ChronoStack from data_tail
+    chrono_stack = case node do
+      %{body: %{data_tail: %{chrono_stack: cs}}} -> cs
+      _ -> %{stack_layers: []}
+    end
+    
+    stack_depth = case chrono_stack do
+      %{stack_layers: layers} when is_list(layers) -> length(layers)
+      _ -> 0
+    end
+    
+    # Get relationships
+    tail = Map.get(node, :tail)
+    relationships = if tail, do: extract_crems_relationships(tail), else: []
+    
+    # Build CREMS-specific artifact
+    %{
+      score: score,
+      node_type: "crems_process",
+      identity: %{
+        name: name,
+        node_id: node_id,
+        fact: fact,
+        executable: executable,
+        actor_pid: actor_pid
+      },
+      process: %{
+        pid_type: pid_type,
+        pid_value: pid_value,
+        state: fid_state,
+        tags: tags
+      },
+      physiology: %{
+        satisfaction: satisfaction,
+        stress: stress,
+        strain: strain,
+        agility: agility,
+        effect: effect
+      },
+      history: %{
+        chrono_stack_depth: stack_depth
+      },
+      relationships: relationships
+    }
+  end
+  
+  # Extract process name from natural language fact
+  defp extract_process_name(fact) when is_binary(fact) do
+    # Try to extract from patterns like "Process: nginx" or "System service nginx"
+    cond do
+      String.contains?(fact, "Process: ") ->
+        fact |> String.split("Process: ") |> List.last() |> String.split(" ") |> List.first()
+      String.contains?(fact, "service ") ->
+        fact |> String.split("service ") |> List.last() |> String.split(" ") |> List.first()
+      String.starts_with?(fact, "DECEASED: ") ->
+        "GHOST: " <> (fact |> String.slice(10..50))
+      true ->
+        fact |> String.slice(0..40)
+    end
+  end
+  defp extract_process_name(_), do: "unknown"
+  
+  # Extract relationships from CREMS NodeTail
+  defp extract_crems_relationships(tail) when is_map(tail) do
+    semantic = Map.get(tail, :semantic_edges) || []
+    hierarchical = Map.get(tail, :hierarchical_edges) || []
+    communication = Map.get(tail, :communication_edges) || []
+    dependency = Map.get(tail, :dependency_edges) || []
+    symbiotic = Map.get(tail, :symbiotic_edges) || []
+    
+    all_edges = semantic ++ hierarchical ++ communication ++ dependency ++ symbiotic
+    
+    Enum.map(all_edges, fn edge ->
+      %{
+        type: Map.get(edge, :type),
+        target: Map.get(edge, :target_node_id),
+        weight: Map.get(edge, :weight) || Map.get(edge, :ratio) || 1.0,
+        protocol: Map.get(edge, :protocol)
+      }
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
+    end)
+    |> Enum.take(20)
+  end
+  
+  # Build artifact for CDMS file nodes (original logic)
+  defp build_cdms_artifact(score, node) do
     # Extract node data safely using pattern matching for structs and Map.get for fallback
     node_id = case node do
       %CMS.Node{id: id} -> id
@@ -6298,6 +6594,7 @@ defmodule CMS.Web.Router do
     # Build the Cognitive Artifact
     artifact = %{
       score: score,
+      node_type: "cdms_file",
       identity: %{
         path: path,
         name: name,
@@ -6325,6 +6622,7 @@ defmodule CMS.Web.Router do
       artifact
     end
   end
+  
   
   defp extract_relationships(tail) when is_map(tail) do
     # Extract from NodeTail structure - use Map.get to avoid Access behaviour issues
@@ -7918,7 +8216,7 @@ defmodule CMS.NodeSupervisor do
   Returns a list of all active Node PIDs.
   """
   def get_all_active_node_pids do
-    Registry.select(CMS.NodeRegistry, [{{:_, :"$1", :_}, [], [:"$1"]}])
+    Registry.select(CMS.NodeRegistry, [{{:"$1", :"$2", :_}, [{:is_binary, :"$1"}], [:"$2"]}])
   end
 end
 
@@ -11609,7 +11907,7 @@ defmodule CMS.Core.Logic.EdgeGenerator do
     candidates = prime_candidates(node.head.embedding, node.id)
     
     Enum.reduce(candidates, node, fn {target_id, score}, acc ->
-      if score >= conflict_threshold do
+      if score >= conflict_threshold and not is_crems do
         # --- SPECIAL CASE: DIALECTICAL MERGE ---
         # 1. Add Contradicts Link to Peer
         acc = add_edge_to_node(acc, Edge.new(target_id, :contradicts, 1.0))
@@ -11690,7 +11988,7 @@ defmodule CMS.Core.Logic.EdgeGenerator do
     # Configuration matches IngestionEngine Spec
     # Differentiate threshold: 0.9 for CREMS, 0.4 for CDMS
     min_score = if my_id && crems_node?(my_id), do: 0.9, else: 0.4
-    max_links = 10
+    max_links = 3
     
     # 1. Fetch all drift info from the lock-free ETS index
     # This eliminates GenServer deadlocks during Scatter-Gather.
@@ -11702,7 +12000,7 @@ defmodule CMS.Core.Logic.EdgeGenerator do
         if node_id != my_id and remote_embedding do
            score = cosine_similarity(embedding, remote_embedding)
            if score >= min_score do
-             Logger.debug("EdgeGenerator: Node #{my_id || "NEW"} evaluating #{node_id} -> Score: #{:io_lib.format("~.4f", [score])}")
+             # Logger.debug("EdgeGenerator: Node #{my_id || "NEW"} evaluating #{node_id} -> Score: #{:io_lib.format("~.4f", [score])}")
              [{node_id, score} | acc]
            else
              acc

@@ -50,6 +50,9 @@ defmodule CREMS.Agents.NodeActor do
     edge_count = length(wired_node.tail.semantic_edges)
     Logger.info("CREMS Node #{node.id} booted & wired. Region: #{region_id}. Edges: #{edge_count}")
 
+    # INSERT THIS LINE:
+    Process.send_after(self(), :late_binding_scan, 5000)
+
     {:ok, %__MODULE__{
       node: wired_node,
       last_activation_times: %{},
@@ -93,7 +96,7 @@ defmodule CREMS.Agents.NodeActor do
   def handle_cast(:fire, state) do
     # Primary fire starts a NEW trace
     trace = MapSet.new([state.node.id])
-    ttl = 2 # Default TTL for CREMS
+    ttl = 3 # Increased from 2 to allow 3-hop propagation
     handle_cast({:fire_with_config, trace, ttl}, state)
   end
 
@@ -104,9 +107,12 @@ defmodule CREMS.Agents.NodeActor do
     # 1. Decay TTL
     if ttl > 0 do
        # 2. Get Edges
-       # CREMS nodes usually have edges in 'tail'.
-       all_edges = state.node.tail.semantic_edges ++ state.node.tail.hierarchical_edges 
-       # + tail.syntactic if exists (it doesn't in CREMS)
+       tail = state.node.tail
+       all_edges = (tail.semantic_edges || []) ++ 
+                   (tail.hierarchical_edges || []) ++
+                   (tail.communication_edges || []) ++
+                   (tail.dependency_edges || []) ++
+                   (tail.symbiotic_edges || [])
        
        # 3. Strength Calculation (Shared Math)
        inhibition = CMS.ActivationEngine.get_global_inhibition_factor()
@@ -114,10 +120,11 @@ defmodule CREMS.Agents.NodeActor do
        
        # 4. Propagate
        Enum.each(all_edges, fn edge ->
-         target_strength = base_strength * edge.weight 
+         weight = get_edge_weight(edge)
+         target_strength = base_strength * weight
          case Registry.lookup(CMS.NodeRegistry, edge.target_node_id) do
             [{pid, _}] -> 
-               send(pid, {:activation, state.node.id, target_strength, edge.type, trace, ttl - 1})
+               send(pid, {:activation, state.node.id, target_strength, edge.type, trace, ttl})
             [] -> :ok
          end
        end)
@@ -125,6 +132,8 @@ defmodule CREMS.Agents.NodeActor do
     
     {:noreply, state}
   end
+
+
 
   @impl true
   def handle_cast({:update_physics, feelings, raw_stats}, state) do
@@ -379,7 +388,7 @@ defmodule CREMS.Agents.NodeActor do
      {:noreply, cleared_state}
   end
   
-   @impl true
+  @impl true
   def handle_cast({:update_death_state, updates}, state) do
      # Update node body with death-related state
      new_body = %{state.node.body |
@@ -391,6 +400,49 @@ defmodule CREMS.Agents.NodeActor do
      new_node = %{state.node | body: new_body}
      persist_node(new_node)
      {:noreply, %{state | node: new_node}}
+  end
+
+  @impl true
+  def handle_cast({:apply_hebbian_updates, adjustments}, state) do
+    new_tail = Enum.reduce(adjustments, state.node.tail, fn {target_id, delta}, acc_tail ->
+      update_edge_weight(acc_tail, target_id, delta)
+    end)
+
+    if new_tail != state.node.tail do
+      # Logger.debug("Node #{state.node.id} applied #{length(adjustments)} Hebbian updates.")
+      new_node = %{state.node | tail: new_tail}
+      persist_node(new_node)
+      {:noreply, %{state | node: new_node}}
+    else
+      {:noreply, state}
+    end
+  end
+
+  # --- Hebbian Helpers ---
+
+  defp update_edge_weight(tail, target_id, delta) do
+    # Try semantic_edges first
+    case update_weight_in_list(tail.semantic_edges || [], target_id, delta) do
+      {:ok, new_list} -> %{tail | semantic_edges: new_list}
+      :not_found ->
+        # Try dependency_edges
+        case update_weight_in_list(tail.dependency_edges || [], target_id, delta) do
+           {:ok, new_list} -> %{tail | dependency_edges: new_list}
+           :not_found -> tail
+        end
+    end
+  end
+
+  defp update_weight_in_list(list, target_id, delta) do
+    case Enum.find_index(list, fn e -> e.target_node_id == target_id end) do
+      nil -> :not_found
+      idx ->
+        edge = Enum.at(list, idx)
+        current_weight = Map.get(edge, :weight, 1.0)
+        new_weight = CMS.Core.Logic.CognitiveMath.calculate_new_hebbian_weight(current_weight, delta)
+        new_edge = Map.put(edge, :weight, new_weight)
+        {:ok, List.replace_at(list, idx, new_edge)}
+    end
   end
   
   # Forensic Analysis Helpers
@@ -421,6 +473,14 @@ defmodule CREMS.Agents.NodeActor do
 
 
   # --- Infos ---
+
+  def handle_info(:late_binding_scan, state) do
+    candidates = CMS.Core.Logic.EdgeGenerator.prime_candidates(state.node.head.embedding, state.node.id)
+    Enum.each(candidates, fn {target_id, score} ->
+       GenServer.cast(self(), {:upsert_edge, :semantically_related_to, target_id, %{score: score}})
+    end)
+    {:noreply, state}
+  end
 
   # Backward compatibility: Old activation messages without trace/TTL
   @impl true
@@ -502,6 +562,10 @@ defmodule CREMS.Agents.NodeActor do
          relevance,
          state.node
        )
+       
+       # Trigger Spreading Activation
+       GenServer.cast(self(), :fire)
+       
        {:noreply, %{state | last_query_context: query_context}}
     else
        {:noreply, %{state | last_query_context: query_context}}
@@ -549,7 +613,7 @@ defmodule CREMS.Agents.NodeActor do
           delta = boost * 0.1
           CMS.RegionalHebbianBuffer.buffer_update(source_id, [{state.node.id, delta}], region_id)
           
-          # Propagate
+          # Propagate - Decrement TTL here (once per hop)
           GenServer.cast(self(), {:fire_with_config, new_trace, ttl - 1})
           
           {:noreply, state}
@@ -560,6 +624,10 @@ defmodule CREMS.Agents.NodeActor do
   end
 
   # --- Internal ---
+
+  defp get_edge_weight(%{weight: w}), do: w
+  defp get_edge_weight(%{ratio: r}), do: r
+  defp get_edge_weight(_), do: 1.0
 
   defp persist_node(new_node) do
     # For CREMS, we persist to Mnesia nodes_table as well for observability.

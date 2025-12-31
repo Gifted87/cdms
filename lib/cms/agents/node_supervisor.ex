@@ -160,7 +160,7 @@ defmodule CMS.NodeSupervisor do
   Returns a list of all active Node PIDs.
   """
   def get_all_active_node_pids do
-    Registry.select(CMS.NodeRegistry, [{{:_, :"$1", :_}, [], [:"$1"]}])
+    Registry.select(CMS.NodeRegistry, [{{:"$1", :"$2", :_}, [{:is_binary, :"$1"}], [:"$2"]}])
   end
 end
 

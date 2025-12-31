@@ -52,20 +52,23 @@ defmodule CREMS.Physics.PhantomEngine do
 
         # 3. Extract fid:physics_model and fid:telemetry
         physics = phantom.body.fid_physics_model || %{elasticity_coefficient: 1.0, saturation_point: 1.0}
-        telemetry = phantom.body.fid_telemetry || %{stress: 0.0, cpu_load: 0.0}
-
+        
         # 4. Apply Physics (Elasticity Logic)
         input_force = force_vector.magnitude
         # Spec: Elasticity = Phantom.body.fid:physics_model.elasticity_coefficient
         elasticity = Map.get(physics, :elasticity_coefficient, 1.0)
-        current_stress = Map.get(telemetry, :stress, 0.0)
+        
+        # FIX: Pull from top-level body field (CREMS.NodeBody.fid_stress)
+        current_stress = phantom.body.fid_stress || 0.0
 
         # Formula: Predicted_Stress = Current_Stress * (Input_Force ^ Elasticity)
         predicted_stress = current_stress * :math.pow(input_force, elasticity)
 
         # 5. Check Saturation (Crash Prediction)
-        # Predicted_Load = Phantom.body.fid:telemetry.cpu_load * Input_Force.
-        current_load = Map.get(telemetry, :cpu_load, 0.0)
+        # FIX: Pull from :cpu_usage inside telemetry (what Sentinels actually send)
+        telemetry = phantom.body.fid_telemetry || %{}
+        current_load = Map.get(telemetry, :cpu_usage, 0.0)
+        
         predicted_load = current_load * input_force
         saturation_point = Map.get(physics, :saturation_point, 1.0)
 
