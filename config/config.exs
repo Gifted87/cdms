@@ -7,7 +7,7 @@ config :acn_cms, CMS.PubSub,
   pool_size: 1
 
 # CREMS Configuration (Section 8: Necrosis Protocol)
-config :cms,
+config :acn_cms,
   # Ghost retention period in hours (default: 24 hours)
   crems_ghost_retention_hours: 24,
   # Scavenger scan interval in milliseconds (default: 1 hour)

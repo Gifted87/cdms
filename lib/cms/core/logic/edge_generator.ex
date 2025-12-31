@@ -115,14 +115,17 @@ defmodule CMS.Core.Logic.EdgeGenerator do
   """
   def generate_semantic_edges(node) do
     # Configuration matches IngestionEngine Spec
-    conflict_threshold = 0.8
+    # Differentiate thresholds for CDMS/CREMS
+    is_crems = crems_node?(node.id)
+    conflict_threshold = if is_crems, do: 0.95, else: 0.8
+    
     my_id = node.id
 
     # Get raw candidates with scores using Scatter-Gather
     candidates = prime_candidates(node.head.embedding, node.id)
     
     Enum.reduce(candidates, node, fn {target_id, score}, acc ->
-      if score >= conflict_threshold do
+      if score >= conflict_threshold and not is_crems do
         # --- SPECIAL CASE: DIALECTICAL MERGE ---
         # 1. Add Contradicts Link to Peer
         acc = add_edge_to_node(acc, Edge.new(target_id, :contradicts, 1.0))
@@ -153,19 +156,44 @@ defmodule CMS.Core.Logic.EdgeGenerator do
 
   # --- Helper for Polymorphic Node Support ---
 
+  defp crems_node?(node_id) do
+    # CREMS nodes use pid-node-, beam-node-, or mother- prefixes
+    String.starts_with?(node_id, ["pid-node-", "beam-node-", "mother-"])
+  end
+
   defp add_edge_to_node(%CMS.Node{} = node, edge) do
     %{node | tail: CMS.NodeTail.add_edge(node.tail, edge)}
   end
 
   defp add_edge_to_node(%CREMS.Node{} = node, edge) do
-    # Convert CMS.Edge to CREMS Tuple format
-    # Spec: {:semantically_related_to, target_uuid, score}
-    # Note: We map 'contradicts' and 'semantic' to this tuple, preserving score/weight.
-    tuple = {:semantically_related_to, edge.target_node_id, edge.weight}
+    # Map-based Edge Structure for CREMS (Phase 7+)
+    # This standardizes CREMS with CDMS for consistency across the Cognitive Graph.
+    new_edge = %{
+      type: edge.type, 
+      target_node_id: edge.target_node_id, 
+      weight: edge.weight
+    }
     
-    # CREMS.NodeTail uses :semantic_edges list
-    new_semantic = [tuple | node.tail.semantic_edges]
-    new_tail = %{node.tail | semantic_edges: new_semantic}
+    # Route to appropriate tail collection based on type
+    tail = node.tail
+    new_tail = case edge.type do
+      t when t in [:parent_of, :child_of] ->
+        %{tail | hierarchical_edges: [new_edge | tail.hierarchical_edges]}
+      :communicates_with ->
+        # Note: communications edges can have extra metadata, but Edge.t() is simplified.
+        # NodeActor handles full protocol/ratio via explicit upsert_edge cast.
+        %{tail | communication_edges: [new_edge | tail.communication_edges]}
+      :depends_on ->
+        %{tail | dependency_edges: [new_edge | tail.dependency_edges]}
+      t when t in [:semantic, :contradicts, :semantically_related_to] ->
+        # Standardize type to :semantically_related_to for CREMS
+        standard_edge = %{new_edge | type: :semantically_related_to}
+        %{tail | semantic_edges: [standard_edge | tail.semantic_edges]}
+      t when t in [:defined_by, :defines] ->
+        %{tail | symbiotic_edges: [new_edge | tail.symbiotic_edges]}
+      _ ->
+        tail
+    end
     
     %{node | tail: new_tail}
   end
@@ -176,8 +204,9 @@ defmodule CMS.Core.Logic.EdgeGenerator do
   """
   def prime_candidates(embedding, my_id \\ nil) do
     # Configuration matches IngestionEngine Spec
-    min_score = 0.3
-    max_links = 10
+    # Differentiate threshold: 0.9 for CREMS, 0.4 for CDMS
+    min_score = if my_id && crems_node?(my_id), do: 0.9, else: 0.4
+    max_links = 3
     
     # 1. Fetch all drift info from the lock-free ETS index
     # This eliminates GenServer deadlocks during Scatter-Gather.
@@ -189,7 +218,7 @@ defmodule CMS.Core.Logic.EdgeGenerator do
         if node_id != my_id and remote_embedding do
            score = cosine_similarity(embedding, remote_embedding)
            if score >= min_score do
-             Logger.debug("EdgeGenerator: Node #{my_id || "NEW"} evaluating #{node_id} -> Score: #{:io_lib.format("~.4f", [score])}")
+             # Logger.debug("EdgeGenerator: Node #{my_id || "NEW"} evaluating #{node_id} -> Score: #{:io_lib.format("~.4f", [score])}")
              [{node_id, score} | acc]
            else
              acc

@@ -36,6 +36,9 @@ defmodule CMS.Application do
       # 0. Infrastructure Guard (Process Monitor for Lock Cleanup)
       CMS.Infrastructure.InstanceGuard,
 
+      # 0.1 HTTP Connection Pool
+      {Finch, name: CMS.Finch, pools: %{:default => [size: 200]}},
+
       # 1. Core Registries
       {Registry, keys: :unique, name: CMS.NodeRegistry},
       {Registry, keys: :unique, name: CMS.QueryCoordinatorRegistry},
@@ -65,7 +68,7 @@ defmodule CMS.Application do
       CMS.NodeSupervisor,
 
       # 7. CREMS Genesis Swarm (Phase 5)
-      {DynamicSupervisor, name: CREMS.Ingestion.SwarmSupervisor, strategy: :one_for_one},
+      {Task.Supervisor, name: CREMS.Ingestion.SwarmSupervisor},
       CREMS.Ingestion.RuntimeSwarm,
       
       # 8. CREMS Forensics & Ghost Management (Section 8: Necrosis Protocol)

@@ -78,7 +78,7 @@ defmodule CREMS.Persistence.EpochLog do
     File.mkdir_p!(archives_path)
     
     # Create ETS index table (persistent across restarts via disk-based recovery)
-    index_table = :ets.new(:epoch_log_index, [:set, :public, :named_table])
+    index_table = :ets.new(:crems_epoch_log_index, [:set, :public, :named_table])
     
     # Load existing index from disk if it exists
     load_index_from_disk(base_path, index_table)

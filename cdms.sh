@@ -38,6 +38,5 @@ echo "       Identity: $NODE_ID"
 echo "       Port:     $PORT"
 
 # 5. Boot Sequence
-# We intentionally use mix phx.server for the Dev/Prototype phase.
-# In production, this would be replaced by the release binary command.
-elixir --name "$NODE_ID" --cookie "secure_cognitive_cookie" -S mix phx.server
+# Updated: Using 'mix run --no-halt' for raw Plug/Cowboy application support
+elixir --name "$NODE_ID" --cookie "secure_cognitive_cookie" -S mix run --no-halt

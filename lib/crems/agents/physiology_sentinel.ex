@@ -25,8 +25,8 @@ defmodule CREMS.Agents.PhysiologySentinel do
 
   @impl true
   def init(opts) do
-    node_id = Keyword.fetch!(opts, :node_id)
-    target_pid = Keyword.fetch!(opts, :target_pid)
+    node_id = get_opt(opts, :node_id)
+    target_pid = get_opt(opts, :target_pid)
     
     # Initial sampling rate: 1s
     sampling_rate = 1000
@@ -251,7 +251,7 @@ defmodule CREMS.Agents.PhysiologySentinel do
       is_nil(last_metrics) -> -1
       
       # OOM Heuristic: High RAM and high Stress
-      last_metrics.ram_bytes > (500 * 1024 * 1024) -> 
+      (Map.get(last_metrics, :mem_kb, 0) * 1024) > (500 * 1024 * 1024) -> 
         Logger.info("[PhysiologySentinel] Inferred death: OOM Kill (SIGKILL 137)")
         137
         
@@ -268,4 +268,7 @@ defmodule CREMS.Agents.PhysiologySentinel do
       true -> -1
     end
   end
+
+  defp get_opt(opts, key) when is_list(opts), do: Keyword.fetch!(opts, key)
+  defp get_opt(opts, key) when is_map(opts), do: Map.fetch!(opts, key)
 end

@@ -130,7 +130,7 @@ defmodule CREMS.Agents.NodeActor do
   def handle_cast({:update_physics, feelings, raw_stats}, state) do
      # 1. Update Volatile history for rate-of-change calc
      # (This is separate from the ChronoStack which is for Significant transitions)
-     current_stack = state.node.body.data_tail.chrono_stack.head_layer.history || []
+     current_stack = state.node.body.data_tail.chrono_stack.head_layer[:history] || []
      new_history = [feelings | Enum.take(current_stack, 9)]
      
      # 2. Simulate (Phantom Manifold Predictions)
@@ -195,21 +195,24 @@ defmodule CREMS.Agents.NodeActor do
   @impl true
   def handle_cast({:upsert_edge, type, target_id, metadata}, state) do
      case type do
-       :communicates_with ->
-         edges = state.node.tail.communication_edges || []
-         ratio = Map.get(metadata, :ratio, 1.0)
-         proto = Map.get(metadata, :proto, :tcp)
-         
-         new_edges = 
-           case Enum.split_with(edges, fn {:communicates_with, t, _, _} -> t == target_id end) do
-             {[], other} -> [{:communicates_with, target_id, proto, ratio} | other]
-             {[{:communicates_with, _, _, _} | _], other} -> [{:communicates_with, target_id, proto, ratio} | other]
-           end
-           
-         new_tail = %{state.node.tail | communication_edges: new_edges}
-         new_node = %{state.node | tail: new_tail}
-         persist_node(new_node)
-         {:noreply, %{state | node: new_node}}
+        :communicates_with ->
+          edges = state.node.tail.communication_edges || []
+          ratio = Map.get(metadata, :ratio, 1.0)
+          proto = Map.get(metadata, :proto, :tcp)
+          
+          new_edge = %{type: :communicates_with, target_node_id: target_id, protocol: proto, ratio: ratio}
+          
+          # Robustness logic: handle both Maps (new) and Tuples (legacy)
+          new_edges = [new_edge | Enum.reject(edges, fn
+            %{target_node_id: t} -> t == target_id
+            {:communicates_with, t, _, _} -> t == target_id
+            _ -> false
+          end)]
+            
+          new_tail = %{state.node.tail | communication_edges: new_edges}
+          new_node = %{state.node | tail: new_tail}
+          persist_node(new_node)
+          {:noreply, %{state | node: new_node}}
 
        :child_of ->
          # Hierarchy edges in CREMS are usually in head or tail depending on preference.
@@ -234,23 +237,35 @@ defmodule CREMS.Agents.NodeActor do
          persist_node(new_node)
          {:noreply, %{state | node: new_node}}
 
-       :semantically_related_to ->
-         # Support for semantic edge updates if needed
-         edges = state.node.tail.semantic_edges || []
-         weight = Map.get(metadata, :score, 0.5)
-         new_edges = [%{type: :semantically_related_to, target_node_id: target_id, weight: weight} | 
-                      Enum.reject(edges, &(&1.target_node_id == target_id))]
-         
-         new_tail = %{state.node.tail | semantic_edges: new_edges}
+        :semantically_related_to ->
+          # Support for semantic edge updates
+          edges = state.node.tail.semantic_edges || []
+          weight = Map.get(metadata, :score, 0.5)
+          new_edge = %{type: :semantically_related_to, target_node_id: target_id, weight: weight}
+          
+          # Robustness: reject existing by ID, handling both map and tuple formats
+          new_edges = [new_edge | Enum.reject(edges, fn
+            %{target_node_id: t} -> t == target_id
+            {:semantically_related_to, t, _} -> t == target_id
+            _ -> false
+          end)]
+          
+          new_tail = %{state.node.tail | semantic_edges: new_edges}
          new_node = %{state.node | tail: new_tail}
          persist_node(new_node)
          {:noreply, %{state | node: new_node}}
 
-        :defined_by ->
-          # Bridge edge to CDMS
-          edges = state.node.tail.symbiotic_edges || []
-          new_edges = [%{type: :defined_by, target_node_id: target_id, weight: 1.0} | 
-                       Enum.reject(edges, &(&1.target_node_id == target_id))]
+         :defined_by ->
+           # Bridge edge to CDMS
+           edges = state.node.tail.symbiotic_edges || []
+           new_edge = %{type: :defined_by, target_node_id: target_id, weight: 1.0}
+           
+           new_edges = [new_edge | Enum.reject(edges, fn
+             %{target_node_id: t} -> t == target_id
+             {:defined_by, t} -> t == target_id
+             {:defines, t} -> t == target_id
+             _ -> false
+           end)]
           
           new_tail = %{state.node.tail | symbiotic_edges: new_edges}
           new_node = %{state.node | tail: new_tail}
@@ -364,6 +379,20 @@ defmodule CREMS.Agents.NodeActor do
      {:noreply, cleared_state}
   end
   
+   @impl true
+  def handle_cast({:update_death_state, updates}, state) do
+     # Update node body with death-related state
+     new_body = %{state.node.body |
+       fid_state: Map.get(updates, :fid_state, state.node.body.fid_state),
+       fid_satisfaction: Map.get(updates, :fid_satisfaction, state.node.body.fid_satisfaction),
+       fid_output: Map.get(updates, :fid_output, state.node.body.fid_output)
+     }
+     
+     new_node = %{state.node | body: new_body}
+     persist_node(new_node)
+     {:noreply, %{state | node: new_node}}
+  end
+  
   # Forensic Analysis Helpers
   
   defp interpret_exit_code(0), do: "Clean Exit"
@@ -390,19 +419,6 @@ defmodule CREMS.Agents.NodeActor do
     base_tags ++ specific_tags
   end
 
-  @impl true
-  def handle_cast({:update_death_state, updates}, state) do
-     # Update node body with death-related state
-     new_body = %{state.node.body |
-       fid_state: Map.get(updates, :fid_state, state.node.body.fid_state),
-       fid_satisfaction: Map.get(updates, :fid_satisfaction, state.node.body.fid_satisfaction),
-       fid_output: Map.get(updates, :fid_output, state.node.body.fid_output)
-     }
-     
-     new_node = %{state.node | body: new_body}
-     persist_node(new_node)
-     {:noreply, %{state | node: new_node}}
-  end
 
   # --- Infos ---
 

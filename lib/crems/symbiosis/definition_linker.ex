@@ -44,8 +44,8 @@ defmodule CREMS.Symbiosis.DefinitionLinker do
     # This is slightly expensive, but exhaustive O(N_runtime).
     Registry.select(CMS.NodeRegistry, [{{:"$1", :"$2", :"$3"}, [], [{{:"$1", :"$2", :"$3"}}]}])
     |> Enum.each(fn {crems_id, _pid, _} -> 
-       # We only link if it's a pid-node-*
-       if String.starts_with?(crems_id, "pid-node-") do
+       # We only link if it's a pid-node- string
+       if is_binary(crems_id) and String.starts_with?(crems_id, "pid-node-") do
           perform_linkage(crems_id)
        end
     end)

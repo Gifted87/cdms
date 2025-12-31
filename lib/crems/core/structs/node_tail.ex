@@ -5,11 +5,11 @@ defmodule CREMS.NodeTail do
   """
 
   defstruct [
-    :hierarchical_edges,  # List: {:parent_of | :child_of, target_uuid}
-    :communication_edges, # List: {:communicates_with, target_uuid, protocol, transfer_ratio}
-    :dependency_edges,    # List: {:depends_on, target_uuid}
-    :semantic_edges,      # List: {:semantically_related_to, target_uuid, score}
-    :symbiotic_edges      # List: {:defined_by | :defines, target_uuid}
+    :hierarchical_edges,  # List of Maps: %{type: :parent_of | :child_of, target_node_id: uuid, weight: 1.0}
+    :communication_edges, # List of Maps: %{type: :communicates_with, target_node_id: uuid, protocol: proto, ratio: score}
+    :dependency_edges,    # List of Maps: %{type: :depends_on, target_node_id: uuid, weight: score}
+    :semantic_edges,      # List of Maps: %{type: :semantically_related_to, target_node_id: uuid, weight: score}
+    :symbiotic_edges      # List of Maps: %{type: :defined_by | :defines, target_node_id: uuid, weight: 1.0}
   ]
 
   @type t :: %__MODULE__{

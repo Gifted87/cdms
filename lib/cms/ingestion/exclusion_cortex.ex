@@ -5,7 +5,7 @@ defmodule CMS.Ingestion.ExclusionCortex do
 
   require Logger
 
-  @default_blocklist ~w(.git .svn node_modules _build target venv __pycache__ deps priv mnesia_store .elixir_ls)
+  @default_blocklist ~w(.git .svn node_modules _build target venv __pycache__ deps priv mnesia_store .elixir_ls memory_cartridges .gemini)
   @max_file_size_bytes 100 * 1024 * 1024 # 100MB
 
   @doc """
@@ -13,8 +13,10 @@ defmodule CMS.Ingestion.ExclusionCortex do
   Decides whether to traverse a directory or drop it.
   """
   def should_traverse?(path) do
-    basename = Path.basename(path)
-    if Enum.member?(@default_blocklist, basename) do
+    # Check if ANY component of the path is in the blocklist
+    components = Path.split(path)
+    
+    if Enum.any?(components, fn part -> Enum.member?(@default_blocklist, part) end) do
       Logger.debug("ExclusionCortex: Dropping #{path} (Blocklist)")
       false
     else

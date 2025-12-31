@@ -56,6 +56,13 @@ defmodule CREMS.Agents.TrackingAgent do
   end
 
   @impl true
+  def handle_cast({:record_event, type, metadata}, state) do
+    Logger.debug("[TRACKER] Event recorded for #{state.node_id}: #{type} | #{inspect(metadata)}")
+    # We can expand this later to persist significant events to the ChronoStack
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_cast({:execute_autopsy, exit_code, final_buffer}, state) do
     Logger.warning("[TRACKER] AUTOPSY PROTOCOL: Executing for Node #{state.node_id}. Exit Code: #{exit_code}")
     
@@ -174,7 +181,7 @@ defmodule CREMS.Agents.TrackingAgent do
     # Only hash relevant parts for noise rejection
     # We care about identity, state, and topology
     data_to_hash = {
-      node.body.fid_state,
+      :ignore_state, # Patched: State ignored in hash to prevent blinking loops
       node.body.natural_language_fact,
       length(node.tail.hierarchical_edges),
       length(node.tail.communication_edges)
@@ -189,7 +196,7 @@ defmodule CREMS.Agents.TrackingAgent do
       is_nil(old_node) -> true
       
       # 1. State Change
-      node.body.fid_state != old_node.body.fid_state -> true
+      normalize_state(node.body.fid_state) != normalize_state(old_node.body.fid_state) -> true
       
       # 2. Topology Change (New Child / Parent / Network Link)
       length(node.tail.hierarchical_edges) != length(old_node.tail.hierarchical_edges) or
@@ -218,7 +225,7 @@ defmodule CREMS.Agents.TrackingAgent do
         state: node.head.cognitive_state
       },
       physiology: %{
-        state: node.body.fid_state,
+        state: :ignore_state, # Patched: State ignored in hash to prevent blinking loops
         satisfaction: node.body.fid_satisfaction,
         stress: node.body.fid_stress,
         strain: node.body.fid_strain,
@@ -250,9 +257,28 @@ defmodule CREMS.Agents.TrackingAgent do
        # Correlate: Plots Input_Load vs Stress vs Agility (Spec 7.2)
        data_points = Enum.map(history, fn snap ->
          # Input_Load (Network/Message Volume) as per Spec 7.2 Role 2
-         load = snap.data.topology.communication_count + 
-                (Map.get(snap.data.physiology.telemetry, "cpu_usage", 0.0) * 10)
-         %{load: load, stress: snap.data.physiology.stress, agility: snap.data.physiology.agility}
+         
+         # Handle polymorphic snapshot structure (Nested vs Flat Initial)
+         data = snap.data
+         
+         {physiology, topology} = 
+           case Map.get(data, :physiology) do
+             nil -> 
+               # Flat Initial State (Fallback)
+               {data, %{communication_count: 0}}
+             phys -> 
+               # Nested Standard State
+               {phys, Map.get(data, :topology) || %{}}
+           end
+
+         telemetry = Map.get(physiology, :telemetry) || %{}
+         
+         # Safe access to communication_count (struct or map)
+         comm_count = Map.get(topology, :communication_count, 0)
+         
+         load = comm_count + (Map.get(telemetry, "cpu_usage", 0.0) * 10)
+         
+         %{load: load, stress: Map.get(physiology, :stress, 0.0), agility: Map.get(physiology, :agility, 0.0)}
        end)
 
        # 1. Derive elasticity_coefficient (Spec 7.2)
@@ -317,4 +343,8 @@ defmodule CREMS.Agents.TrackingAgent do
   defp via_tuple(node_id) do
     {:via, Registry, {CMS.NodeRegistry, {:tracking_agent, node_id}}}
   end
+
+  # --- Patch Helpers ---
+  defp normalize_state(state) when state in [:running, :runnable, :waiting, :sleeping, :active], do: :alive
+  defp normalize_state(state), do: state
 end

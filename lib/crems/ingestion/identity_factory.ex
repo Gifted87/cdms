@@ -26,7 +26,7 @@ defmodule CREMS.Ingestion.IdentityFactory do
   """
   def generate_tags(%{is_erlang: true, registered_name: name}) do
     tags = ["erlang", "runtime_node", "process"]
-    if name, do: [Atom.to_string(name) | tags], else: tags
+    if is_atom(name) and name != nil, do: [Atom.to_string(name) | tags], else: tags
   end
 
   def generate_tags(%{binary_name: bin, user: user}) do

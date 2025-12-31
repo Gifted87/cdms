@@ -1,48 +1,41 @@
 import os
-import sys
 
-# CORRECT PATH based on your feedback
-TARGET_FILE = "/home/gifted/cdms/lib/cms/agents/node_actor.ex"
+# Target file: The Physics Engine, not the Agent
+file_path = "lib/crems/physics/alchemist.ex"
 
-def patch_node_actor():
-    if not os.path.exists(TARGET_FILE):
-        print(f"❌ Error: Could not find {TARGET_FILE}")
-        sys.exit(1)
+print(f"Recalibrating Physics in {file_path}...")
 
-    print(f"Reading {TARGET_FILE}...")
-    
-    with open(TARGET_FILE, 'r', encoding='utf-8') as f:
+try:
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # We look for the entry point of the activation handler
-    search_pattern = "if strength > 0.2 do"
+    # The hardcoded limit (512MB)
+    # Pattern: max_ram = 512 * 1024 * 1024
     
-    # We replace it with a check against the last_fired timestamp
-    # 1. Get current time
-    # 2. Diff against state.node.last_fired
-    # 3. Only proceed if diff > 2000ms
-    replacement_pattern = """# REFRACTORY PERIOD GUARD
-    # Absolute Lockout: 2000ms. Stops positive feedback loops.
-    now = DateTime.utc_now()
-    last = state.node.last_fired || DateTime.add(now, -3600, :second)
-    diff_ms = DateTime.diff(now, last, :millisecond)
+    target_str = "max_ram = 512 * 1024 * 1024"
+    replacement_str = "max_ram = 2048 * 1024 * 1024 # Recalibrated to 2GB"
 
-    if strength > 0.2 and diff_ms > 2000 do"""
-
-    if "REFRACTORY PERIOD GUARD" in content:
-        print("⚠️  File is already patched.")
-        return
-
-    if search_pattern in content:
-        new_content = content.replace(search_pattern, replacement_pattern)
+    if target_str in content:
+        new_content = content.replace(target_str, replacement_str)
         
-        with open(TARGET_FILE, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(new_content)
             
-        print(f"✅ Successfully patched {TARGET_FILE}")
-        print("   -> Applied 2000ms loop breaker logic.")
+        print("✅ Success! Alchemist recalibrated to 2GB RAM limit.")
+        
+    elif "max_ram = 2048" in content:
+        print("⚠️  Alchemist already recalibrated.")
     else:
-        print(f"❌ Error: Could not find the pattern '{search_pattern}' in the file.")
+        # Regex fallback just in case of formatting differences
+        import re
+        regex = r"max_ram\s*=\s*512\s*\*\s*1024\s*\*\s*1024"
+        if re.search(regex, content):
+             new_content = re.sub(regex, "max_ram = 2048 * 1024 * 1024", content)
+             with open(file_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+             print("✅ Success! Recalibrated via Regex.")
+        else:
+             print("❌ Error: Could not find 'max_ram' definition in Alchemist.")
 
-if __name__ == "__main__":
-    patch_node_actor()
+except FileNotFoundError:
+    print(f"❌ Error: File {file_path} not found.")

@@ -16,9 +16,17 @@ defmodule CMS.EpochManager do
   @nodes_table :nodes_table
   @vector_index :vector_index
 
-  @log_dir "priv/data/epochs"
+  @log_dir "priv/data/epochs" # Keep for fallback or reference, though log_dir/0 overrides
   @rotation_interval :timer.hours(1)
   @max_size_bytes 100 * 1024 * 1024 # 100MB
+  
+  # Dynamic Log Path Resolution
+  defp log_dir do
+    case System.get_env("ACMS_DATA_DIR") do
+      nil -> "priv/data/epochs"
+      dir -> Path.join(dir, "epochs")
+    end
+  end
 
   defstruct [:current_file_path, :current_log_id, :file_handle, :bytes_written, :rotation_timer]
 
@@ -50,7 +58,8 @@ defmodule CMS.EpochManager do
   def init(:ok) do
     # Initialize Mnesia Schema and Directory
     init_mnesia()
-    File.mkdir_p!(@log_dir)
+    File.mkdir_p!(log_dir())
+
 
     # Open first log
     state = start_new_epoch()
@@ -179,7 +188,7 @@ defmodule CMS.EpochManager do
     id = UUID.uuid4()
     timestamp = DateTime.utc_now()
     filename = "epoch_#{DateTime.to_iso8601(timestamp) |> String.replace(":", "-")}_#{id}.jsonl"
-    path = Path.join(@log_dir, filename)
+    path = Path.join(log_dir(), filename)
 
     {:ok, handle} = File.open(path, [:append, :utf8])
 

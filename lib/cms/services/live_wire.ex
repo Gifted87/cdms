@@ -54,15 +54,21 @@ defmodule CMS.Services.LiveWire do
   @impl true
   def handle_info({:mutate, path}, state) do
     # Step 6.2: The Mutation Loop
-    Logger.info("LiveWire: mutation detected on #{path}")
     
-    case handle_mutation(path) do
-      {:ok, _uuid} ->
-        # Update last known mtime to avoid re-triggering immediately
-        new_mtime = get_mtime(path)
-        {:noreply, %{state | watched_paths: Map.put(state.watched_paths, path, new_mtime)}}
-      _ ->
-        {:noreply, state}
+    if CMS.Ingestion.ExclusionCortex.should_traverse?(path) do
+      Logger.info("LiveWire: mutation detected on #{path}")
+      
+      case handle_mutation(path) do
+        {:ok, _uuid} ->
+          # Update last known mtime to avoid re-triggering immediately
+          new_mtime = get_mtime(path)
+          {:noreply, %{state | watched_paths: Map.put(state.watched_paths, path, new_mtime)}}
+        _ ->
+          {:noreply, state}
+      end
+    else
+      Logger.info("LiveWire: Dropping watch on excluded path: #{path}")
+      {:noreply, %{state | watched_paths: Map.delete(state.watched_paths, path)}}
     end
   end
 

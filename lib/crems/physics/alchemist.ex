@@ -110,7 +110,7 @@ defmodule CREMS.Physics.Alchemist do
 
     # 2. Strain
     # Soft limit 512MB
-    max_ram = 512 * 1024 * 1024
+    max_ram = 2048 * 1024 * 1024 # Recalibrated to 2GB
     io_wait = if metrics.state == "D", do: 0.5, else: 0.0
     strain = calculate_strain(metrics.ram_bytes, max_ram, io_wait)
 
@@ -137,6 +137,7 @@ defmodule CREMS.Physics.Alchemist do
       strain: strain,
       agility: agility,
       satisfaction: satisfaction,
+      state: metrics.state,
       effect: effect
     }
   end
@@ -199,6 +200,7 @@ defmodule CREMS.Physics.Alchemist do
       strain: strain,
       agility: agility,
       satisfaction: satisfaction,
+      state: metrics.status,
       effect: effect
     }
   end
@@ -218,6 +220,7 @@ defmodule CREMS.Physics.Alchemist do
        strain: 0.0, 
        agility: 0.0, 
        satisfaction: satisfaction,
+       state: :terminated,
        effect: "Terminated with reason: #{inspect(reason)}"
      }
   end

@@ -26,8 +26,8 @@ defmodule CREMS.Agents.BeamSentinel do
 
   @impl true
   def init(opts) do
-    node_id = Keyword.fetch!(opts, :node_id)
-    target_pid = Keyword.fetch!(opts, :target_pid)
+    node_id = get_opt(opts, :node_id)
+    target_pid = get_opt(opts, :target_pid)
     
     # Monitor to detect death immediately
     ref = Process.monitor(target_pid)
@@ -182,4 +182,7 @@ defmodule CREMS.Agents.BeamSentinel do
        [] -> :ok
     end
   end
+
+  defp get_opt(opts, key) when is_list(opts), do: Keyword.fetch!(opts, key)
+  defp get_opt(opts, key) when is_map(opts), do: Map.fetch!(opts, key)
 end

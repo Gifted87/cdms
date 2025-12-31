@@ -30,7 +30,7 @@ defmodule CMS.Tool.Embedder do
     }
 
     # Execute request
-    case Req.post(bridge_url(), json: payload, receive_timeout: @default_timeout) do
+    case Req.post(bridge_url(), json: payload, receive_timeout: @default_timeout, finch: CMS.Finch) do
       {:ok, %Req.Response{status: 200, body: body}} ->
         process_response(body)
 
