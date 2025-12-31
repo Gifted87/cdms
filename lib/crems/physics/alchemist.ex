@@ -225,6 +225,53 @@ defmodule CREMS.Physics.Alchemist do
      }
   end
 
+  @doc """
+  Transmutes system-wide hardware metrics into Physiological Feelings.
+  Supported types: :cpu, :ram, :storage
+  """
+  def transmute_hardware_metrics(metrics) do
+    case metrics.type do
+      :cpu ->
+        # cpu_usage 0-100 (aggregate)
+        cpu_load = metrics.cpu_usage / 100.0
+        # For system CPU, 'error_rate' could be iowait
+        stress = calculate_stress(cpu_load, metrics.iowait / 100.0)
+        # Strain for CPU is just load squared in this model
+        strain = calculate_strain(metrics.cpu_usage, 100.0, metrics.iowait / 100.0)
+        
+        agility = calculate_agility(1.0 - (metrics.iowait / 100.0), cpu_load)
+        satisfaction = 1.0 - cpu_load
+        
+        effect = describe(stress, strain, agility, satisfaction)
+        %{stress: stress, strain: strain, agility: agility, satisfaction: satisfaction, state: :active, effect: "CPU: " <> effect}
+
+      :ram ->
+        # used_kb / total_kb
+        strain = calculate_strain(metrics.used_kb, metrics.total_kb, 0.0)
+        # Stress for RAM: Swap usage ratio
+        swap_ratio = if metrics.total_swap_kb > 0, do: metrics.used_swap_kb / metrics.total_swap_kb, else: 0.0
+        stress = calculate_stress(strain, swap_ratio)
+        
+        agility = 1.0 - swap_ratio
+        satisfaction = 1.0 - strain
+        
+        effect = describe(stress, strain, agility, satisfaction)
+        %{stress: stress, strain: strain, agility: agility, satisfaction: satisfaction, state: :active, effect: "RAM: " <> effect}
+
+      :storage ->
+        # used_bytes / total_bytes
+        strain = calculate_strain(metrics.used, metrics.total, 0.0)
+        # Storage stress: exponential as it fills up
+        stress = :math.pow(strain, 4) 
+        
+        agility = 1.0 # Storage is binary: it exists or it's full
+        satisfaction = 1.0 - strain
+        
+        effect = describe(stress, strain, agility, satisfaction)
+        %{stress: stress, strain: strain, agility: agility, satisfaction: satisfaction, state: :active, effect: "Storage: " <> effect}
+    end
+  end
+
   # --- Internal ---
 
   defp sigmoid(x), do: 1.0 / (1.0 + :math.exp(-x))

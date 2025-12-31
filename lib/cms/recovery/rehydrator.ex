@@ -30,7 +30,7 @@ defmodule CMS.Recovery.Rehydrator do
     {:ok, _} = CMS.VectorRouter.start_link([])
     
     # 3. Stream & Reconstruct
-    epoch_dir = "priv/data/epochs"
+    epoch_dir = epoch_dir()
     File.mkdir_p!(epoch_dir)
     epoch_files = 
       File.ls!(epoch_dir)
@@ -76,7 +76,7 @@ defmodule CMS.Recovery.Rehydrator do
     File.rm_rf!(mnesia_dir)
     File.mkdir_p!(mnesia_dir) 
     
-    vector_dir = "priv/data/hnsw_indices" 
+    vector_dir = vector_dir()
     File.rm_rf!(vector_dir)
     Logger.info("REHYDRATOR: Burnt Mnesia and Vector Caches.")
   end
@@ -172,8 +172,18 @@ defmodule CMS.Recovery.Rehydrator do
     Enum.each(pending_map, fn {model, items} ->
       if length(items) > 0 do
         Logger.debug("REHYDRATOR: Flushing batch of #{length(items)} vectors for #{model}...")
-        VectorRouter.bulk_add(items, model)
+    VectorRouter.bulk_add(items, model)
       end
     end)
+  end
+
+  defp epoch_dir do
+    data_root = Application.get_env(:acn_cms, :data_root) || "priv/data"
+    Path.join(data_root, "epochs")
+  end
+
+  defp vector_dir do
+    data_root = Application.get_env(:acn_cms, :data_root) || "priv/data"
+    Path.join(data_root, "hnsw_indices")
   end
 end

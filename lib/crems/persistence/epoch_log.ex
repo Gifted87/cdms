@@ -17,7 +17,7 @@ defmodule CREMS.Persistence.EpochLog do
   use GenServer
   require Logger
 
-  @default_base_path "priv/data/crems_epoch_logs"
+
 
   defstruct [
     :base_path,
@@ -28,6 +28,37 @@ defmodule CREMS.Persistence.EpochLog do
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  @doc """
+  Archives a ghost node's ChronoStack to cold storage.
+  
+  Metadata should include:
+  - node_id: String
+  - exit_code: Integer
+  """
+  @impl true
+  def init(opts) do
+    data_root = Application.get_env(:acn_cms, :data_root) || "priv/data"
+    default_path = Path.join(data_root, "crems_epoch_logs")
+    base_path = Keyword.get(opts, :base_path, default_path)
+    
+    # Ensure directory structure exists
+    archives_path = Path.join(base_path, "archives")
+    File.mkdir_p!(archives_path)
+    
+    # Create ETS index table (persistent across restarts via disk-based recovery)
+    index_table = :ets.new(:crems_epoch_log_index, [:set, :public, :named_table])
+    
+    # Load existing index from disk if it exists
+    load_index_from_disk(base_path, index_table)
+    
+    Logger.info("[EpochLog] Initialized at #{base_path}")
+    
+    {:ok, %__MODULE__{
+      base_path: base_path,
+      index_table: index_table
+    }}
   end
 
   @doc """
@@ -68,28 +99,6 @@ defmodule CREMS.Persistence.EpochLog do
   end
 
   # --- Callbacks ---
-
-  @impl true
-  def init(opts) do
-    base_path = Keyword.get(opts, :base_path, @default_base_path)
-    
-    # Ensure directory structure exists
-    archives_path = Path.join(base_path, "archives")
-    File.mkdir_p!(archives_path)
-    
-    # Create ETS index table (persistent across restarts via disk-based recovery)
-    index_table = :ets.new(:crems_epoch_log_index, [:set, :public, :named_table])
-    
-    # Load existing index from disk if it exists
-    load_index_from_disk(base_path, index_table)
-    
-    Logger.info("[EpochLog] Initialized at #{base_path}")
-    
-    {:ok, %__MODULE__{
-      base_path: base_path,
-      index_table: index_table
-    }}
-  end
 
   @impl true
   def handle_call({:archive, node_id, chrono_stack, metadata}, _from, state) do

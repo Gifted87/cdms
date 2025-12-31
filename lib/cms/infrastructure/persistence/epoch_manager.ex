@@ -16,16 +16,14 @@ defmodule CMS.EpochManager do
   @nodes_table :nodes_table
   @vector_index :vector_index
 
-  @log_dir "priv/data/epochs" # Keep for fallback or reference, though log_dir/0 overrides
+
   @rotation_interval :timer.hours(1)
   @max_size_bytes 100 * 1024 * 1024 # 100MB
   
   # Dynamic Log Path Resolution
   defp log_dir do
-    case System.get_env("ACMS_DATA_DIR") do
-      nil -> "priv/data/epochs"
-      dir -> Path.join(dir, "epochs")
-    end
+    data_root = Application.get_env(:acn_cms, :data_root) || "priv/data"
+    Path.join(data_root, "epochs")
   end
 
   defstruct [:current_file_path, :current_log_id, :file_handle, :bytes_written, :rotation_timer]

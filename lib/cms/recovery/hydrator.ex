@@ -8,7 +8,10 @@ defmodule CMS.Recovery.Hydrator do
   Refined for CDMS Phase 1.
   """
 
-  @epoch_dir "priv/data/epochs"
+  defp epoch_dir do
+    data_root = Application.get_env(:acn_cms, :data_root) || "priv/data"
+    Path.join(data_root, "epochs")
+  end
 
   @doc """
   Main entry point for hydration. Scans epoch logs and spawns node processes.
@@ -16,13 +19,13 @@ defmodule CMS.Recovery.Hydrator do
   def run do
     Logger.info("HYDRATOR: Beginning CDMS Hydration Protocol...")
     
-    File.mkdir_p!(@epoch_dir)
+    File.mkdir_p!(epoch_dir())
     
     files = 
-      File.ls!(@epoch_dir)
+      File.ls!(epoch_dir())
       |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
       |> Enum.sort()
-      |> Enum.map(&Path.join(@epoch_dir, &1))
+      |> Enum.map(&Path.join(epoch_dir(), &1))
 
     if files == [] do
       Logger.info("HYDRATOR: No epoch logs found. Skipping hydration.")

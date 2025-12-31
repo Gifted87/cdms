@@ -38,5 +38,8 @@ echo "       Identity: $NODE_ID"
 echo "       Port:     $PORT"
 
 # 5. Boot Sequence
-# Updated: Using 'mix run --no-halt' for raw Plug/Cowboy application support
-elixir --name "$NODE_ID" --cookie "secure_cognitive_cookie" -S mix run --no-halt
+# DEFAULT: Interactive Console mode
+iex --name "$NODE_ID" --cookie "secure_cognitive_cookie" -S mix
+
+# ALTERNATIVE: Headless mode (Uncomment to use)
+# elixir --name "$NODE_ID" --cookie "secure_cognitive_cookie" -S mix run --no-halt

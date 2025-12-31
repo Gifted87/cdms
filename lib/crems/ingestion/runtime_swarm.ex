@@ -56,7 +56,10 @@ defmodule CREMS.Ingestion.RuntimeSwarm do
     # 1. Mother Node Discovery
     mother_node = instantiate_mother_node()
     
-    # 2. Injection: Spawn first ModellingAgent
+    # 2. Hardware Modelling (Organ Discovery)
+    CREMS.Ingestion.HardwareIngestor.run(mother_node.id)
+
+    # 3. Injection: Spawn first ModellingAgent
     # Targeting PID 1 (OS Root) as the primary entry point
     spawn_root_agent(mother_node.id)
 

@@ -13,7 +13,7 @@ defmodule CMS.VectorRouter do
   """
 
   # Configuration
-  @base_index_dir "priv/data/hnsw_indices"
+
   @dim 384
   @max_elements 100_000
   @persist_interval :timer.minutes(5)
@@ -66,7 +66,7 @@ defmodule CMS.VectorRouter do
 
   @doc "Destroys all indices on disk. Hazardous."
   def clean_slate do
-    File.rm_rf(@base_index_dir)
+    File.rm_rf(base_index_dir())
   end
   
   @doc "Optimized bulk insertion for Rehydration."
@@ -80,7 +80,7 @@ defmodule CMS.VectorRouter do
   @impl true
   def init(_opts) do
     # 1. Ensure Index directory exists
-    File.mkdir_p!(@base_index_dir)
+    File.mkdir_p!(base_index_dir())
 
     # 2. Initialize Mnesia (Safe to call multiple times if handled)
     init_mnesia()
@@ -357,8 +357,14 @@ defmodule CMS.VectorRouter do
   end
 
   defp index_file_path(model_version) do
-    File.mkdir_p!(@base_index_dir)
-    Path.join(@base_index_dir, "#{String.replace(model_version, "-", "_")}.hnsw.bin")
+    dir = base_index_dir()
+    File.mkdir_p!(dir)
+    Path.join(dir, "#{String.replace(model_version, "-", "_")}.hnsw.bin")
+  end
+
+  defp base_index_dir do
+    data_root = Application.get_env(:acn_cms, :data_root) || "priv/data"
+    Path.join(data_root, "hnsw_indices")
   end
 
   # Removed: to_flat_list_sanitized/1 as it is no longer needed.
