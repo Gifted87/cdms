@@ -5,7 +5,7 @@ defmodule CMS.Ingestion.ExclusionCortex do
 
   require Logger
 
-  @default_blocklist ~w(.git .svn node_modules _build target venv __pycache__ deps priv mnesia_store .elixir_ls memory_cartridges .gemini)
+  @default_blocklist ~w(.git .svn node_modules _build target venv __pycache__ deps priv mnesia_store .elixir_ls memory_cartridges .gemini locale locale-archive gconv zoneinfo terminfo)
   @max_file_size_bytes 100 * 1024 * 1024 # 100MB
 
   @doc """

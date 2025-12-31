@@ -262,87 +262,6 @@ File: mix.lock
 
 
 ------------------------------------------------------------
-File: genesis_test.log
-------------------------------------------------------------
-14:51:42.026 [info] CMS Bootloader: Checking Persistence Integrity...
-14:51:42.042 [info] CMS Bootloader: Identity Verified. Fast Boot initiated.
-14:51:42.358 [info] [InstanceGuard] Lock acquired on /home/gifted/cdms/priv/data
-14:51:42.395 [notice] Application mnesia exited: :stopped
-14:51:42.461 [info] Mnesia schema created on disk at /home/gifted/cdms/priv/data/mnesia_store.
-14:51:42.569 [info] Mnesia table epoch_log_index created.
-14:51:42.580 [info] Mnesia table nodes_table created.
-14:51:42.589 [info] Mnesia table vector_index created.
-14:51:42.621 [info] Started new Epoch Log: priv/data/epochs/epoch_2025-12-28T13-51-42.610580Z_5c8b8116-e996-4e75-b7c4-180236768715.jsonl
-14:51:42.635 [info] CMS.VectorRouter: No index found for nomic-embed-text. Creating fresh.
-14:51:42.670 [info] CMS.VectorRouter: No index found for all-MiniLM-L6-v2. Creating fresh.
-14:51:42.679 [info] CMS.VectorRouter: No index found for custom-bert-v1. Creating fresh.
-14:51:42.688 [info] SymbolicIndex: Path registry initialized
-14:51:42.694 [info] CMS.ActivationEngine started. Global Factor: 1.0
-14:51:42.700 [info] Hebbian Shard 0 started. ETS: :hebbian_buffer_0
-14:51:42.700 [info] Hebbian Shard 1 started. ETS: :hebbian_buffer_1
-14:51:42.700 [info] Hebbian Shard 2 started. ETS: :hebbian_buffer_2
-14:51:42.701 [info] Hebbian Shard 3 started. ETS: :hebbian_buffer_3
-14:51:42.701 [info] Hebbian Shard 4 started. ETS: :hebbian_buffer_4
-14:51:42.702 [info] Hebbian Shard 5 started. ETS: :hebbian_buffer_5
-14:51:42.702 [info] Hebbian Shard 6 started. ETS: :hebbian_buffer_6
-14:51:42.702 [info] Hebbian Shard 7 started. ETS: :hebbian_buffer_7
-14:51:42.702 [info] Hebbian Shard 8 started. ETS: :hebbian_buffer_8
-14:51:42.703 [info] Hebbian Shard 9 started. ETS: :hebbian_buffer_9
-14:51:42.703 [info] Hebbian Shard 10 started. ETS: :hebbian_buffer_10
-14:51:42.703 [info] Hebbian Shard 11 started. ETS: :hebbian_buffer_11
-14:51:42.704 [info] Hebbian Shard 12 started. ETS: :hebbian_buffer_12
-14:51:42.705 [info] Hebbian Shard 13 started. ETS: :hebbian_buffer_13
-14:51:42.706 [info] Hebbian Shard 14 started. ETS: :hebbian_buffer_14
-14:51:42.706 [info] Hebbian Shard 15 started. ETS: :hebbian_buffer_15
-14:51:42.707 [info] Hebbian Shard 16 started. ETS: :hebbian_buffer_16
-14:51:42.707 [info] Hebbian Shard 17 started. ETS: :hebbian_buffer_17
-14:51:42.708 [info] Hebbian Shard 18 started. ETS: :hebbian_buffer_18
-14:51:42.708 [info] Hebbian Shard 19 started. ETS: :hebbian_buffer_19
-14:51:42.709 [info] Hebbian Shard 20 started. ETS: :hebbian_buffer_20
-14:51:42.709 [info] Hebbian Shard 21 started. ETS: :hebbian_buffer_21
-14:51:42.710 [info] Hebbian Shard 22 started. ETS: :hebbian_buffer_22
-14:51:42.710 [info] Hebbian Shard 23 started. ETS: :hebbian_buffer_23
-14:51:42.711 [info] Hebbian Shard 24 started. ETS: :hebbian_buffer_24
-14:51:42.711 [info] Hebbian Shard 25 started. ETS: :hebbian_buffer_25
-14:51:42.712 [info] Hebbian Shard 26 started. ETS: :hebbian_buffer_26
-14:51:42.712 [info] Hebbian Shard 27 started. ETS: :hebbian_buffer_27
-14:51:42.713 [info] Hebbian Shard 28 started. ETS: :hebbian_buffer_28
-14:51:42.714 [info] Hebbian Shard 29 started. ETS: :hebbian_buffer_29
-14:51:42.714 [info] Hebbian Shard 30 started. ETS: :hebbian_buffer_30
-14:51:42.715 [info] Hebbian Shard 31 started. ETS: :hebbian_buffer_31
-14:51:42.715 [info] CMS.Web API started on port 4000
-14:51:42.835 [info] HYDRATOR: Beginning CDMS Hydration Protocol...
-14:51:42.835 [info] HYDRATOR: Found 1 files. Loading nodes...
-14:51:42.847 [info] HYDRATOR: Loaded 0 nodes from disk. Spawning processes...
-14:51:42.848 [info] Starting CDMS Genesis for: /home/gifted/cdms
-14:51:42.848 [info] Checking Ollama Connectivity...
-14:51:52.428 [info] Ollama Bridge: ONLINE. Model 'qwen3:0.6b' is ready.
-14:51:52.428 [info] Pass One: Awakening (Populating hierarchy)...
-14:51:52.436 [info] Genesis Swarm unleashed (Phase 1). Waiting for wavefront completion...
-14:51:52.440 [debug] ExclusionCortex: Dropping /home/gifted/cdms/deps (Blocklist)
-14:51:52.440 [debug] ExclusionCortex: Dropping /home/gifted/cdms/_build (Blocklist)
-14:52:01.074 [error] GenServer #PID<0.692.0> terminating
-** (stop) {:aborted, {:bad_type, {:nodes_table, "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", nil, %CMS.NodeHead{uuid: "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", embedding: #Nx.Tensor<
-       f32[384]
-       [0.03492097929120064, -0.005281602963805199, -0.14560532569885254, 0.0028212396427989006, 0.046866755932569504, -0.04761921986937523, 0.08378201723098755, 0.10188984125852585, -0.036594223231077194, 0.10702936351299286, 0.11094817519187927, 0.023745426908135414, 0.01630602963268757, -0.05240775644779205, 0.06037300452589989, 0.015695253387093544, -0.06985323876142502, 0.05459645390510559, 0.10573200136423111, -0.012492632493376732, 0.04880468174815178, 0.07247035950422287, 0.05145777761936188, 0.021137408912181854, -0.06662781536579132, -0.024282045662403107, 0.012573862448334694, 0.031687602400779724, -0.03484935685992241, -0.10900670289993286, 0.024234695360064507, 0.03200039267539978, 0.0035114113707095385, 0.055173151195049286, 0.13424061238765717, 0.03756168857216835, 0.074056476354599, -0.05986529588699341, -0.07650947570800781, ...]
-     >, embedding_model_version: "all-MiniLM-L6-v2", relevance_threshold: 0.35, internal_state: :genesis, spatial_coords: {0.0, 0.0, 0}, width_descriptor: "m0"}, %CMS.NodeBody{data_head: %CMS.DataHead{summary: "cdms directory containing Files: 2 .exs, 1 .lock, 1 .log, 3 .py, 1 .sh, 1 .txt. Subdirectories: test_genesis, priv, lib, config, memory_cartridges, test", concepts: ["cdms", "Directory", "Folder"]}, data_body: nil, data_ledger: %CMS.DataTail{physical_symlink: "/home/gifted/cdms", integrity_hash: "dir_hash", mime_definition: "inode/directory", last_mutation: ~U[2025-12-28 13:52:01.035519Z], chrono_stack: %CMS.ChronoStack{snapshots: []}, salience_score: 0.5}, mode: :shallow}, %CMS.NodeTail{hierarchical: [], syntactic: [], semantic: []}, %CMS.ChronoStack{snapshots: []}}}}
-    (mnesia 4.21.4.2) mnesia.erl:362: :mnesia.abort/1
-    (mnesia 4.21.4.2) mnesia.erl:1795: :mnesia.do_dirty_write/3
-    (acn_cms 1.0.0) lib/cms/ingestion/directory_agent.ex:170: CMS.Ingestion.DirectoryAgent.ensure_directory_node/4
-    (acn_cms 1.0.0) lib/cms/ingestion/directory_agent.ex:39: CMS.Ingestion.DirectoryAgent.handle_info/2
-    (stdlib 4.3.1.3) gen_server.erl:1123: :gen_server.try_dispatch/4
-    (stdlib 4.3.1.3) gen_server.erl:1200: :gen_server.handle_msg/6
-    (stdlib 4.3.1.3) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
-Last message: :genesis_sequence
-State: %{children_uuids: [], my_uuid: nil, opts: [edge_generation: true, notify_pid: #PID<0.96.0>], parent_id: nil, path: "/home/gifted/cdms", spatial_coords: {0.0, 0.0, 0}, width_descriptor: "m0"}
-** (EXIT from #PID<0.96.0>) {:aborted, {:bad_type, {:nodes_table, "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", nil, %CMS.NodeHead{uuid: "5fdff6a3-3f28-5f7f-90b1-45a4ec902334", embedding: #Nx.Tensor<
-       f32[384]
-       [0.03492097929120064, -0.005281602963805199, -0.14560532569885254, 0.0028212396427989006, 0.046866755932569504, -0.04761921986937523, 0.08378201723098755, 0.10188984125852585, -0.036594223231077194, 0.10702936351299286, 0.11094817519187927, 0.023745426908135414, 0.01630602963268757, -0.05240775644779205, 0.06037300452589989, 0.015695253387093544, -0.06985323876142502, 0.05459645390510559, 0.10573200136423111, -0.012492632493376732, 0.04880468174815178, 0.07247035950422287, 0.05145777761936188, 0.021137408912181854, -0.06662781536579132, -0.024282045662403107, 0.012573862448334694, 0.031687602400779724, -0.03484935685992241, -0.10900670289993286, 0.024234695360064507, 0.03200039267539978, 0.0035114113707095385, 0.055173151195049286, 0.13424061238765717, 0.03756168857216835, 0.074056476354599, -0.05986529588699341, -0.07650947570800781, ...]
-     >, embedding_model_version: "all-MiniLM-L6-v2", relevance_threshold: 0.35, internal_state: :genesis, spatial_coords: {0.0, 0.0, 0}, width_descriptor: "m0"}, %CMS.NodeBody{data_head: %CMS.DataHead{summary: "cdms directory containing Files: 2 .exs, 1 .lock, 1 .log, 3 .py, 1 .sh, 1 .txt. Subdirectories: test_genesis, priv, lib, config, memory_cartridges, test", concepts: ["cdms", "Directory", "Folder"]}, data_body: nil, data_ledger: %CMS.DataTail{physical_symlink: "/home/gifted/cdms", integrity_hash: "dir_hash", mime_definition: "inode/directory", last_mutation: ~U[2025-12-28 13:52:01.035519Z], chrono_stack: %CMS.ChronoStack{snapshots: []}, salience_score: 0.5}, mode: :shallow}, %CMS.NodeTail{hierarchical: [], syntactic: [], semantic: []}, %CMS.ChronoStack{snapshots: []}}}}
-
-
-
-------------------------------------------------------------
 File: mix.exs
 ------------------------------------------------------------
 defmodule AcnCms.MixProject do
@@ -401,15 +320,6 @@ defmodule AcnCms.MixProject do
 
   end
 end
-
-
-------------------------------------------------------------
-File: ml_bridge.log
-------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/gifted/cdms/ml_bridge.py", line 3, in <module>
-    from fastapi import FastAPI, HTTPException
-ModuleNotFoundError: No module named 'fastapi'
 
 
 ------------------------------------------------------------
@@ -724,39 +634,35 @@ main "$@"
 File: repair.py
 ------------------------------------------------------------
 import os
-import re
 
-# CORRECT PATH found in your codebase dump
-file_path = "lib/cms/agents/node_supervisor.ex"
+# The file that failed compilation
+file_path = "lib/cms/ingestion/file_ingestion_task.ex"
 
-print(f"Patching {file_path} to ignore TrackingAgents...")
+print(f"Repairing syntax error in {file_path}...")
 
 try:
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # The buggy implementation: Selects EVERYTHING (Match Spec: {_, _, _})
-    bad_regex = r"Registry\.select\(CMS\.NodeRegistry,\s*\[\{\{:_,\s*:\"\$1\",\s*:_\},\s*\[\],\s*\[:\"\$1\"\]\}\]\)"
+    # The issue: content = ... else: \"[BINARY OMITTED]\"
+    # The fix:   content = ... else: "[BINARY OMITTED]"
     
-    # The fix: Selects ONLY keys that are BINARIES (Strings)
-    # The MatchSpec means: Match {Key, PID, _}, where is_binary(Key) is true, return PID.
-    good_code = 'Registry.select(CMS.NodeRegistry, [{{:"$1", :"$2", :_}, [{:is_binary, :"$1"}], [:"$2"]}])'
-
-    if re.search(bad_regex, content):
-        new_content = re.sub(bad_regex, good_code, content)
+    # We replace the escaped version with the clean version
+    bad_syntax = r'else: \"[BINARY OMITTED]\"'
+    good_syntax = r'else: "[BINARY OMITTED]"'
+    
+    if bad_syntax in content:
+        new_content = content.replace(bad_syntax, good_syntax)
         
-        with open(file_path, "w", encoding="utf-8") as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
             
-        print("✅ Success! NodeSupervisor patched.")
-        
-    elif good_code in content:
-        print("⚠️  File is already patched.")
+        print("✅ Syntax fixed! Backslashes removed.")
     else:
-        print("❌ Error: Could not find the Registry.select call to patch.")
+        print("⚠️  Could not find the specific syntax error pattern. Please check line 111 manually.")
 
 except FileNotFoundError:
-    print(f"❌ Error: File {file_path} NOT FOUND. Please verify the file structure manually.")
+    print(f"❌ Error: File {file_path} not found.")
 
 ================================================================================
 Folder: lib
@@ -1239,7 +1145,7 @@ defmodule CREMS.Agents.TrackingAgent do
     history_limit = Keyword.get(opts, :history_limit, 50)
 
     # Vigilant Loop: 1 second wakeup
-    Process.send_after(self(), :observe, 1000)
+    Process.send_after(self(), :observe, 60_000)
     
     Logger.info("[TRACKER] Vigilant Observer started for Node #{node_id}")
     
@@ -1350,7 +1256,7 @@ defmodule CREMS.Agents.TrackingAgent do
     new_state = observe_reality(state)
     
     # Schedule next observation (Periodic Role 1)
-    Process.send_after(self(), :observe, 1000)
+    Process.send_after(self(), :observe, 60_000)
     {:noreply, new_state}
   end
 
@@ -4311,12 +4217,19 @@ defmodule CREMS.Ingestion.ModellingAgent do
   end
 
   defp is_significant_process?(pid) do
-    # :proc_lib.translate_initial_call is CRITICAL. 
-    # Without it, we only see {:proc_lib, :init_p, 5} instead of {MyApp.Server, ...}
-    case :proc_lib.translate_initial_call(pid) do
+    # 1. Registered Name? (Subjectively Important)
+    has_name? = case Process.info(pid, :registered_name) do
+      {:registered_name, name} when is_atom(name) -> true
+      _ -> false
+    end
+
+    # 2. Then check if it is a Significant OTP Behaviour (GenServer, Supervisor, Agent)
+    is_behaviour? = case :proc_lib.translate_initial_call(pid) do
       {module, _, _} -> is_behavioural_module?(module)
       _ -> false
     end
+    
+    has_name? or is_behaviour?
   end
 
   defp is_behavioural_module?(module) do
@@ -4340,18 +4253,30 @@ defmodule CREMS.Ingestion.ModellingAgent do
   
   # --- Infrastructure Blacklist (Renamed/Preserved) ---
   defp check_infrastructure_blacklist(pid) do
-
     # Skip CREMS infrastructure to prevent infinite modeling cascade
-    case Process.info(pid, [:registered_name, :initial_call, :dictionary]) do
+    case Process.info(pid, [:registered_name, :dictionary]) do
       nil -> 
         true  # Process died, skip it
       
       info ->
         registered_name = Keyword.get(info, :registered_name)
-        initial_call = Keyword.get(info, :initial_call)
         dictionary = Keyword.get(info, :dictionary, [])
         
-        # Skip if registered under CREMS/CMS namespace
+        # 1. Translated Initial Call (Most Reliable)
+        {module, _func, _args} = 
+          case :proc_lib.translate_initial_call(pid) do
+            {m, f, a} -> {m, f, a}
+            _ -> {nil, nil, nil}
+          end
+
+        module_str = if module, do: inspect(module), else: ""
+
+        skip_by_module = 
+          String.contains?(module_str, "CMS") or 
+          String.contains?(module_str, "CREMS") or
+          module in [Registry, Task.Supervised, Task]
+        
+        # 2. Registered Name (Fallback)
         skip_by_name = case registered_name do
           name when is_atom(name) ->
             name_str = Atom.to_string(name)
@@ -4362,14 +4287,7 @@ defmodule CREMS.Ingestion.ModellingAgent do
           _ -> false
         end
         
-        # Skip Task.Supervisor workers (includes ModellingAgents)
-        skip_by_initial = case initial_call do
-          {Task.Supervised, _, _} -> true
-          {Task, _, _} -> true
-          _ -> false
-        end
-        
-        # Skip if spawned by our SwarmSupervisor (check ancestors)
+        # 3. Ancestry Check
         skip_by_ancestry = case Keyword.get(dictionary, :"$ancestors") do
           ancestors when is_list(ancestors) ->
             Enum.any?(ancestors, fn ancestor ->
@@ -4384,18 +4302,7 @@ defmodule CREMS.Ingestion.ModellingAgent do
           _ -> false
         end
         
-        # Skip core infrastructure
-        skip_by_module = case initial_call do
-          {GenServer, _, _} -> 
-            # Allow GenServers unless they're explicitly CREMS/CMS
-            false
-          {Supervisor, _, _} -> true
-          {Registry, _, _} -> true
-          {:proc_lib, :init_p, _} -> true
-          _ -> false
-        end
-        
-        skip_by_name or skip_by_initial or skip_by_ancestry or skip_by_module
+        skip_by_module or skip_by_name or skip_by_ancestry
     end
   end
 
@@ -4464,17 +4371,36 @@ defmodule CREMS.Ingestion.RuntimeSwarm do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc """
+  Manually triggers the Genesis sequence to start modelling the OS/BEAM.
+  """
+  def start_genesis do
+    GenServer.cast(__MODULE__, :genesis)
+  end
+
   # --- Callbacks ---
 
   @impl true
   def init(_opts) do
-    # Trigger Genesis after a short delay to ensure system stability
-    Process.send_after(self(), :genesis, 1000)
+    # Manual Start Only: We do NOT trigger genesis automatically.
+    # Waiting for user to call start_genesis/0.
+    Logger.info("[SWARM] RuntimeSwarm started. Waiting for manual genesis...")
     {:ok, %{status: :initializing, mother_node_id: nil}}
   end
 
   @impl true
-  def handle_info(:genesis, state) do
+  def handle_cast(:genesis, state) do
+     if state.status == :initializing do
+        send(self(), :genesis_internal)
+        {:noreply, state}
+     else
+        Logger.warning("[SWARM] Genesis already triggered!")
+        {:noreply, state}
+     end
+  end
+
+  @impl true
+  def handle_info(:genesis_internal, state) do
     Logger.info("[SWARM] Initiating Runtime Genesis...")
 
     # 1. Mother Node Discovery
@@ -4482,8 +4408,6 @@ defmodule CREMS.Ingestion.RuntimeSwarm do
     
     # 2. Injection: Spawn first ModellingAgent
     # Targeting PID 1 (OS Root) as the primary entry point
-    # In a container/restricted env, we might target our own PID, 
-    # but the Spec asks for PID 1 (Host Kernel).
     spawn_root_agent(mother_node.id)
 
     {:noreply, %{state | status: :active, mother_node_id: mother_node.id}}
@@ -4537,6 +4461,13 @@ defmodule CREMS.Ingestion.RuntimeSwarm do
     # In BEAM-only mode, we'd start at :erlang.whereis(:init) or similar.
     # Spec says: "Spawns the first ModellingAgent targeting the Root PID (PID 1 for OS)"
     CREMS.Ingestion.ModellingAgent.spawn_agent(1, %{parent_id: mother_id})
+    
+    # RIGOROUS FIX: Explicitly target the BEAM VM process to ensure Erlang-level modeling occurs
+    # even if the OS traversal (from PID 1) fails to traverse to the BEAM process.
+    beam_pid = System.pid() |> String.to_integer()
+    if beam_pid != 1 do
+       CREMS.Ingestion.ModellingAgent.spawn_agent(beam_pid, %{parent_id: mother_id})
+    end
   end
 end
 
@@ -4562,19 +4493,25 @@ defmodule Mix.Tasks.Cdms.Genesis do
     # 0. Start the App
     Mix.Task.run("app.start")
     
-    path = case args do
-      [p] -> Path.expand(p)
-      _ -> 
-        Mix.raise("Usage: mix cdms.genesis /path/to/target")
+    {opts, [path_raw], _} = OptionParser.parse(args, switches: [mode: :string])
+    
+    path = Path.expand(path_raw || ".")
+    cognitive_mode = case opts[:mode] do
+      "deterministic" -> :deterministic
+      _ -> :generative
+    end
+
+    if path == "." and args == [] do
+      Mix.raise("Usage: mix cdms.genesis /path/to/target [--mode deterministic|generative]")
     end
 
     if not File.dir?(path) do
       Mix.raise("Invalid directory: #{path}")
     end
 
-    Logger.info("Starting CDMS Genesis for: #{path}")
+    Logger.info("Starting CDMS Genesis for: #{path} (Mode: #{cognitive_mode})")
 
-    case CMS.Services.GenesisCrawler.run(path) do
+    case CMS.Services.GenesisCrawler.run(path, cognitive_mode: cognitive_mode) do
       {:ok, _} ->
         Logger.info("Genesis complete. Full cognitive graph established.")
         Logger.info("Monitor logs for progress. Press Ctrl+C to exit.")
@@ -4763,7 +4700,6 @@ defmodule CMS.Application do
       # 5. Ingestion & Query Services
       CMS.Infrastructure.OllamaBridge,
       CMS.Services.LiveWire,
-      CMS.Symbiosis.ProcessLinker, # Section 16: CDMS/CREMS Symbiosis
       {Task.Supervisor, name: CMS.Ingestion.TaskSupervisor},
       CMS.BroadcastCoordinator,
 
@@ -4900,9 +4836,10 @@ defmodule CMS.Services.GenesisCrawler do
   """
   def run(path, options \\ []) do
     path = Path.expand(path)
-    Logger.info("GENESIS: Initiating Cold Boot for #{path}")
+    cognitive_mode = Keyword.get(options, :cognitive_mode, :generative)
+    Logger.info("GENESIS: Initiating Cold Boot for #{path} (Mode: #{cognitive_mode})")
 
-    with :ok <- check_connectivity(),
+    with :ok <- check_connectivity(cognitive_mode),
          :ok <- __MODULE__.Phase1.run(path, options),
          :ok <- __MODULE__.Phase2.run() do
       Logger.info("GENESIS: Cold Boot COMPLETE. Full cognitive graph established.")
@@ -4914,7 +4851,12 @@ defmodule CMS.Services.GenesisCrawler do
     end
   end
 
-  defp check_connectivity do
+  defp check_connectivity(:deterministic) do
+    Logger.info("GENESIS: Deterministic Mode enabled. Bypassing Ollama connectivity check.")
+    :ok
+  end
+
+  defp check_connectivity(_) do
     Logger.info("GENESIS: Checking Ollama Connectivity...")
     case CMS.Infrastructure.OllamaBridge.summarize("system check", @summary_model, nil) do
       {:ok, _} -> 
@@ -5722,100 +5664,6 @@ defmodule CMS.QueryTriage do
       
       {:error, _} ->
         {:error, :embedding_failed}
-    end
-  end
-end
-
-
-------------------------------------------------------------
-File: process_linker.ex
-------------------------------------------------------------
-defmodule CMS.Symbiosis.ProcessLinker do
-  @moduledoc """
-  The Definition Linker: Bridges Anatomy (CDMS Files) and Physiology (CREMS Processes).
-  
-  Periodically scans the host system for running processes, identifies their
-  source executables, and establishes `:defines` edges in the CDMS.
-  """
-  use GenServer
-  require Logger
-
-  @sweep_interval :timer.seconds(30)
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  def init(_opts) do
-    schedule_sweep()
-    {:ok, %{last_sweep: nil}}
-  end
-
-  def handle_info(:sweep, state) do
-    Logger.info("ProcessLinker: Starting physiological sweep...")
-    active_pids()
-    |> Enum.each(&link_process/1)
-    
-    schedule_sweep()
-    {:noreply, %{state | last_sweep: DateTime.utc_now()}}
-  end
-
-  defp schedule_sweep do
-    Process.send_after(self(), :sweep, @sweep_interval)
-  end
-
-  # --- Linkage Logic ---
-
-  defp link_process(pid) do
-    case get_executable_path(pid) do
-      {:ok, path} ->
-        # Look up the Anatomy Node (CDMS) for this path
-        case CMS.SymbolicIndex.get_node_by_path(path) do
-          {:ok, cdms_node_pid} ->
-            establish_link(pid, path, cdms_node_pid)
-          _ ->
-            # Node not found in CDMS, likely ignored or not yet ingested
-            :ok
-        end
-      _ -> :ok
-    end
-  end
-
-  defp establish_link(os_pid, path, cdms_node_pid) do
-    # 1. Get the CDMS Node UUID
-    case GenServer.call(cdms_node_pid, :get_state_snapshot) do
-      {:ok, %CMS.Node{id: cdms_uuid}} ->
-        Logger.debug("ProcessLinker: Link established PID #{os_pid} -> #{path} (#{cdms_uuid})")
-        
-        # Broadcast the link for real-time visualization
-        Phoenix.PubSub.broadcast(CMS.PubSub, "cdms:symbiosis", {:process_link, os_pid, cdms_uuid})
-        
-        # Physiological activity boosts activation (Pulse)
-        # We use a specific pulse strength to signal active execution
-        GenServer.cast(cdms_node_pid, :fire)
-      _ -> :ok
-    end
-  rescue
-    e -> Logger.warning("ProcessLinker: Failed to establish link for PID #{os_pid}: #{inspect(e)}")
-  end
-
-  # --- OS Specifics (/proc scan) ---
-
-  defp active_pids do
-    case File.ls("/proc") do
-      {:ok, items} ->
-        items
-        |> Enum.filter(&Regex.match?(~r/^\d+$/, &1))
-        |> Enum.map(&String.to_integer/1)
-      _ -> []
-    end
-  end
-
-  defp get_executable_path(pid) do
-    link_path = "/proc/#{pid}/exe"
-    case File.read_link(link_path) do
-      {:ok, path} -> {:ok, path}
-      _ -> {:error, :not_accessible}
     end
   end
 end
@@ -11458,7 +11306,7 @@ defmodule CMS.SalienceEngine do
 
   # Configuration for the local Python Bridge (e.g., LLM or BERT-based classifier)
   @bridge_url "http://localhost:5000/api/v1/salience"
-  @default_timeout 2_000 # 2 seconds - Fail fast to keep ingestion speed high
+  @default_timeout 10_000 # 10 seconds - Accommodate higher concurrency/queueing
 
   # Keywords that imply high criticality (Fallback Logic)
   @critical_keywords ~w(error crash panic critical security breach alert fail exception timeout deadlock)
@@ -11468,8 +11316,8 @@ defmodule CMS.SalienceEngine do
   Calculates a score (0.0 to 1.0) based on content analysis and context.
   It attempts to use the ML Bridge first; otherwise, it falls back to heuristics.
   """
-  @spec calculate(String.t(), map()) :: float()
-  def calculate(fact_text, provenance_metadata) do
+  @spec calculate(String.t(), map(), keyword()) :: float()
+  def calculate(fact_text, provenance_metadata, _opts \\ []) do
     # 1. Attempt External Semantic Analysis (Fix 5)
     case call_ml_bridge(fact_text, provenance_metadata) do
       {:ok, score} ->
@@ -13393,7 +13241,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
   @impl true
   def handle_info(:genesis_sequence, state) do
     # 1. Instantiate SELF as a Node (Representation of the Directory)
-    case ensure_directory_node(state.path, state.parent_id, state.spatial_coords, state.width_descriptor) do
+    case ensure_directory_node(state.path, state.parent_id, state.spatial_coords, state.width_descriptor, state.opts) do
       nil ->
         Logger.error("DirectoryAgent: Failed to ensure directory node for #{state.path}. Wavefront halted.")
         {:noreply, state}
@@ -13461,8 +13309,8 @@ defmodule CMS.Ingestion.DirectoryAgent do
                  _ -> nil
                end
             end
-          end, max_concurrency: 1, timeout: :infinity)
-          |> Enum.map(fn {:ok, result} -> result end)
+          end, max_concurrency: 5, timeout: :infinity)
+          |> Enum.flat_map(fn {:ok, result} -> [result]; _ -> [] end)
           |> Enum.filter(& &1)
 
         all_children = children_results
@@ -13510,7 +13358,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
     end)
   end
 
-  defp ensure_directory_node(path, parent_id, spatial_coords, width_descriptor) do
+  defp ensure_directory_node(path, parent_id, spatial_coords, width_descriptor, opts) do
     uuid = UUID.uuid5(:oid, path)
 
     # Idempotency Check: See if node already exists in Mnesia
@@ -13521,7 +13369,8 @@ defmodule CMS.Ingestion.DirectoryAgent do
         # Existing node found but it was a failure. Clean up and re-ingest.
         Logger.info("DirectoryAgent: Re-ingesting previously failed node: #{path}")
         :mnesia.dirty_delete(:nodes_table, uuid)
-        do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor)
+        cog_mode = Keyword.get(opts, :cognitive_mode, :generative)
+        do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor, cog_mode)
 
       [{:nodes_table, ^uuid, _hash, _parent, _head, _body, _tail, _stack, _provenance, _antenna}] ->
         # Node exists and looks valid. Ensure actor is running.
@@ -13532,13 +13381,15 @@ defmodule CMS.Ingestion.DirectoryAgent do
         uuid
 
       [] ->
-        do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor)
+        # Propagate cognitive mode to directory summary generation
+        cog_mode = Keyword.get(opts, :cognitive_mode, :generative)
+        do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor, cog_mode)
     end
   end
 
-  defp do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor) do
-    # Generate meaningful directory summary using LLM
-    case generate_directory_summary(path) do
+  defp do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor, cog_mode) do
+    # Generate meaningful directory summary
+    case generate_directory_summary(path, cog_mode) do
       {:ok, {summary, concepts}} ->
         # Generate proper embedding from the summary
         embedding = case CMS.Tool.Embedder.generate("#{Path.basename(path)}: #{summary}", @embedding_model) do
@@ -13555,7 +13406,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
         metabolism = :static_bone  # Directories are always static bone
         
         # Calculate Salience for the directory
-        salience = CMS.SalienceEngine.calculate(summary, %{"priority" => "high", "type" => "directory"})
+        salience = CMS.SalienceEngine.calculate(summary, %{"priority" => "high", "type" => "directory"}, mode: cog_mode)
         
         # Create DataTail with complete anatomical ledger
         data_ledger = CMS.DataTail.new(
@@ -13603,7 +13454,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
   end
 
   # Generate a meaningful summary for a directory based on its contents
-  defp generate_directory_summary(path) do
+  defp generate_directory_summary(path, cog_mode) do
     dir_name = Path.basename(path)
     
     # List contents to provide context
@@ -13649,18 +13500,25 @@ defmodule CMS.Ingestion.DirectoryAgent do
     OUTPUT JSON: { "summary": "A directory containing...", "concepts": ["Directory", "..."] }
     """
     
-    # Call Ollama for summarization
-    case CMS.Infrastructure.OllamaBridge.summarize(prompt, "qwen3:0.6b", path) do
-      {:ok, %{"summary" => s, "concepts" => c}} when is_binary(s) and is_list(c) ->
-        {:ok, {s, c}}
-      {:ok, %{"summary" => s}} when is_binary(s) ->
-        {:ok, {s, [dir_name, "Directory"]}}
-      {:error, reason} ->
-        Logger.error("DirectoryAgent: Ollama summarization failed for #{path}: #{inspect(reason)}")
-        {:error, reason}
-      other ->
-        Logger.error("DirectoryAgent: Unexpected Ollama response for #{path}: #{inspect(other)}")
-        {:error, :unexpected_response}
+    if cog_mode == :deterministic do
+      # Use Deterministic Aggregator for directory as well
+      summary = CMS.Ingestion.DeterministicAggregator.aggregate(path, contents, "inode/directory")
+      concepts = [dir_name, "Directory"]
+      {:ok, {summary, concepts}}
+    else
+      # Call Ollama for summarization
+      case CMS.Infrastructure.OllamaBridge.summarize(prompt, "qwen3:0.6b", path) do
+        {:ok, %{"summary" => s, "concepts" => c}} when is_binary(s) and is_list(c) ->
+          {:ok, {s, c}}
+        {:ok, %{"summary" => s}} when is_binary(s) ->
+          {:ok, {s, [dir_name, "Directory"]}}
+        {:error, reason} ->
+          Logger.error("DirectoryAgent: Ollama summarization failed for #{path}: #{inspect(reason)}")
+          {:error, reason}
+        other ->
+          Logger.error("DirectoryAgent: Unexpected Ollama response for #{path}: #{inspect(other)}")
+          {:error, :unexpected_response}
+      end
     end
   end
 
@@ -14176,7 +14034,10 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
         # Step 1: Physical Assessment & Decision Gate
         case ExclusionCortex.assess_file(path) do
-          {:ok, mode, _reason} ->
+          {:ok, assessed_mode, _reason} ->
+            # Prioritize cognitive_mode from opts over physical assessment
+            # This allows deterministic mode to override LLM assessment
+            mode = Keyword.get(opts, :cognitive_mode, assessed_mode)
             provenance = Keyword.get(opts, :provenance, %{"source" => "local_ingestion"})
             process_file(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, provenance)
 
@@ -14193,22 +14054,36 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
     # Step 3: The Cognitive Request (Ollama - Inference)
     cognition_result = 
-      if mode == :mode_a_deep do
-        # Use Qwen via Ollama for summarization
-        case OllamaBridge.summarize(content, @summary_model, path) do
-          {:ok, %{"summary" => s, "concepts" => c}} ->
-            case ExclusionCortex.validate_cognition(s) do
-              :ok -> {:ok, {s, c}}
-              {:error, gate_reason} -> 
-                Logger.error("Ingestion ABORTED for #{path}: Semantic Gate failure (#{gate_reason})")
-                {:error, :semantic_gate_failure}
-            end
-          {:error, ollama_reason} -> 
-            Logger.error("Ingestion ABORTED for #{path}: Ollama error (#{inspect(ollama_reason)})")
-            {:error, :ollama_failure}
-        end
-      else
-        {:ok, {"Shallow representation of binary or large file.", []}}
+      cond do
+        mode == :deterministic ->
+          # Use Deterministic Aggregator (Dimension 1-5)
+          summary = CMS.Ingestion.DeterministicAggregator.aggregate(path, content, mime)
+          # In deterministic mode, we can extract keywords as concepts
+          concepts = summary 
+                     |> String.split("[KEYWORDS]: ") 
+                     |> List.last() 
+                     |> String.split("\n") 
+                     |> List.first() 
+                     |> String.split(", ")
+          {:ok, {summary, concepts}}
+
+        mode == :mode_a_deep ->
+          # Use Qwen via Ollama for summarization
+          case OllamaBridge.summarize(content, @summary_model, path) do
+            {:ok, %{"summary" => s, "concepts" => c}} ->
+              case ExclusionCortex.validate_cognition(s) do
+                :ok -> {:ok, {s, c}}
+                {:error, gate_reason} -> 
+                  Logger.error("Ingestion ABORTED for #{path}: Semantic Gate failure (#{gate_reason})")
+                  {:error, :semantic_gate_failure}
+              end
+            {:error, ollama_reason} -> 
+              Logger.error("Ingestion ABORTED for #{path}: Ollama error (#{inspect(ollama_reason)})")
+              {:error, :ollama_failure}
+          end
+
+        true ->
+          {:ok, {"Shallow representation of binary or large file.", []}}
       end
 
     case cognition_result do
@@ -14221,13 +14096,22 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
   defp continue_ingestion(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, content, hash, mime, summary, concepts, provenance) do
 
+    # -- PATCH: Sanitize Inputs --
+    content = if String.valid?(content), do: content, else: "[BINARY OMITTED]"
+    summary = if String.valid?(summary), do: summary, else: "[BINARY OMITTED]"
+    # ----------------------------
+    # -- UTF-8 SANITIZATION PATCH --
+    safe_content = if String.valid?(content), do: content, else: "[BINARY CONTENT OMITTED]"
+    # ------------------------------
+    
+
     # Step 4: Vectorization (Python ML Bridge)
     # Replaces OllamaBridge.embed with CMS.Tool.Embedder.generate
     vector_input = """
     FILE: #{Path.basename(path)}
     SUMMARY: #{summary}
     CONTENT:
-    #{content}
+    #{safe_content}
     """
     
     # Defaults to all-MiniLM-L6-v2 in ml_bridge.py
@@ -14241,7 +14125,7 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
     # Step 5: Salience & Antenna Tuning
     geography = CMS.Ingestion.FractalAperture.analyze_geography(path)
-    base_salience = CMS.SalienceEngine.calculate(summary, provenance)
+    base_salience = CMS.SalienceEngine.calculate(summary, provenance, mode: mode)
     salience = CMS.Ingestion.FractalAperture.adjust_salience(base_salience, geography)
     
     antenna = NodeAntenna.new(path, salience)
@@ -14292,7 +14176,7 @@ defmodule CMS.Ingestion.FileIngestionTask do
     # Create DataTail with full Anatomical Ledger
     data_ledger = DataTail.new(path, hash, mime, salience, essence.permissions, essence.ownership, essence.immutable_flags, essence.genetic_provenance, metabolism)
     
-    body = NodeBody.new(data_head, if(mode == :mode_a_deep, do: content, else: nil), data_ledger, if(mode == :mode_a_deep, do: :deep, else: :shallow))
+    body = NodeBody.new(data_head, if(mode in [:mode_a_deep, :deterministic], do: content, else: nil), data_ledger, if(mode == :mode_a_deep, do: :deep, else: :shallow))
     
     node = Node.new(head, body, antenna, provenance)
 
@@ -14373,6 +14257,413 @@ defmodule CMS.Ingestion.FileIngestionTask do
     end
   end
 end
+
+------------------------------------------------------------
+File: deterministic_aggregator.ex
+------------------------------------------------------------
+defmodule CMS.Ingestion.DeterministicAggregator do
+  @moduledoc """
+  The Deterministic Aggregator: Gathers hard technical facts to build a 
+  multi-dimensional profile (Summary Blob) of a node without LLM latency.
+  """
+  require Logger
+  alias CMS.Ingestion.AnatomyEngine
+
+  @language_rules %{
+    # C-Style Family (C, C++, C#, Java, JS, TS, Go, Rust, Swift, PHP, Kotlin, Scala)
+    c_style: %{
+      extensions: ~w(.c .cpp .h .hpp .cs .java .js .ts .jsx .tsx .go .rs .swift .php .kt .scala),
+      line_comment: "//",
+      block_comment: {~r/\/\*/, ~r/\*\//},
+      import_pattern: ~r/^\s*(?:import|using|include|require|package)\s+([a-zA-Z0-9_\.\/"\*-]+)/m,
+      function_pattern: ~r/(?:func|fn|function|def|void|int|bool|string|public|private|protected)\s+([a-zA-Z0-9_]+)\s*\(/
+    },
+    # Scripting Family (Python, Ruby, Perl, Shell, YAML, TOML, Dockerfile, Make)
+    script_style: %{
+      extensions: ~w(.py .rb .pl .sh .bash .zsh .yaml .yml .toml .dockerfile .make .makefile .conf .properties),
+      line_comment: "#",
+      block_comment: nil, # Python has docstrings, handled separately or as logic
+      import_pattern: ~r/^\s*(?:import|from|require|use|include)\s+([a-zA-Z0-9_\.]+)/m,
+      function_pattern: ~r/(?:def|function|func)\s+([a-zA-Z0-9_]+)/
+    },
+    # Elixir
+    elixir_style: %{
+      extensions: ~w(.ex .exs),
+      line_comment: "#",
+      block_comment: nil,
+      import_pattern: ~r/^\s*(?:alias|import|require|use)\s+([a-zA-Z0-9_\.]+)/m,
+      function_pattern: nil # Handled by AST
+    },
+    # Erlang
+    erlang_style: %{
+      extensions: ~w(.erl),
+      line_comment: "%%",
+      block_comment: nil,
+      import_pattern: ~r/^-include\(".*"\)\./m,
+      function_pattern: ~r/^([a-z0-9_]+)\s*\(.*\)\s*->/m
+    },
+    # SQL
+    sql_style: %{
+      extensions: ~w(.sql),
+      line_comment: "--",
+      block_comment: {~r/\/\*/, ~r/\*\//},
+      import_pattern: nil,
+      function_pattern: ~r/(?:CREATE\s+FUNCTION|CREATE\s+PROCEDURE)\s+([a-zA-Z0-9_]+)/i
+    },
+    # Lisp (Clojure, Scheme)
+    lisp_style: %{
+      extensions: ~w(.clj .lisp .scm .el),
+      line_comment: ";;",
+      block_comment: nil,
+      import_pattern: ~r/\((?:require|use|import)\s+'?([a-zA-Z0-9\.\/-]+)/,
+      function_pattern: ~r/\((?:defn|defun)\s+([a-zA-Z0-9_\-\.]+)/
+    },
+    # Web Markup (HTML, XML)
+    markup_style: %{
+      extensions: ~w(.html .xml .svg .xhtml .vue .svelte),
+      line_comment: nil,
+      block_comment: {~r/<!--/, ~r/-->/},
+      import_pattern: ~r/<(?:script|link|import).*?(?:src|href)=["'](.*?)["']/,
+      function_pattern: nil
+    },
+    # Lua
+    lua_style: %{
+      extensions: ~w(.lua),
+      line_comment: "--",
+      block_comment: {~r/--\[\[/, ~r/\]\]/},
+      import_pattern: ~r/(?:require|dofile)\s*\(?["'](.*?)["']\)?/,
+      function_pattern: ~r/function\s+([a-zA-Z0-9_\.]+)/
+    },
+    # Documentation & Data
+    data_doc_style: %{
+      extensions: ~w(.md .json .csv .log .out .err),
+      line_comment: nil,
+      block_comment: nil,
+      import_pattern: nil,
+      function_pattern: nil
+    },
+    # Archives
+    archive_style: %{
+      extensions: ~w(.zip .tar .gz .7z .rar .jar .war .ear .iso),
+      line_comment: nil,
+      block_comment: nil,
+      import_pattern: nil,
+      function_pattern: nil,
+      is_binary: true
+    },
+    # Application Packages & Binaries
+    package_style: %{
+      extensions: ~w(.exe .app .deb .rpm .bin .dll .so .dylib .dmg .msi),
+      line_comment: nil,
+      block_comment: nil,
+      import_pattern: nil,
+      function_pattern: nil,
+      is_binary: true
+    }
+  }
+
+  @doc """
+  Aggregates seven dimensions of introspection into a standardized Summary Blob.
+  """
+  def aggregate(path, content, mime) do
+    # 1. Identify Logic Rules based on Extension
+    ext = Path.extname(path) |> String.downcase()
+    rules = get_rules_for_ext(ext)
+
+    intent = get_intent(path, content, rules)
+    structure = get_structure(path, content, rules)
+    imports = get_imports(content, rules)
+    comments = get_all_comments(content, rules)
+    keywords = get_keywords(path, content, rules)
+    geography = get_geography(path)
+    anatomy = get_anatomy(path, mime)
+
+    """
+    [INTENT]: #{intent}
+    [STRUCTURE]: #{structure}
+    [IMPORTS]: #{imports}
+    [COMMENTS]: #{comments}
+    [KEYWORDS]: #{keywords}
+    [GEOGRAPHY]: #{geography}
+    [ANATOMY]: #{anatomy}
+    """ |> String.trim()
+  end
+
+  defp get_rules_for_ext(ext) do
+    Enum.find_value(@language_rules, %{}, fn {_style, rules} -> 
+      if ext in rules.extensions, do: rules, else: nil
+    end)
+  end
+
+  # --- Dimension 1: The Declared Intent ---
+  defp get_intent(path, content, rules) do
+    ext = Path.extname(path) |> String.downcase()
+    cond do
+      ext in [".ex", ".exs"] ->
+         case Regex.run(~r/@moduledoc\s+"""\s*(.*?)\s*"""/s, content) do
+          [_, doc] -> clean_doc(doc)
+          _ -> "No module documentation found."
+        end
+      ext == ".py" ->
+        case Regex.run(~r/^["']{3}\s*(.*?)\s*["']{3}/s, content) do
+          [_, doc] -> clean_doc(doc)
+          _ -> "No docstring found."
+        end
+      ext == ".md" ->
+        case Regex.run(~r/^#\s+(.+)$/m, content) do
+          [_, title] -> "Documentation Title: #{title}"
+          _ -> "Markdown documentation."
+        end
+      ext in ~w(.log .out .err) ->
+        "System log file capturing runtime events."
+      true ->
+        cond do
+          Map.get(rules, :is_binary) ->
+             if ext in ~w(.zip .tar .gz .7z .rar .jar .war .ear .iso), do: "Compressed archive artifact.", else: "Executable or distribution package."
+          true ->
+            # Fallback to first comment block from logic rules
+            block_def = Map.get(rules, :block_comment)
+            intent_from_block = case block_def do
+              {start_regex, end_regex} -> 
+                 # We want to match from the VERY FIRST occurrence of start_regex
+                 # but only if it's near the top of the file (first 50 lines)
+                 # Regex.source extracts the pattern without sigil metadata
+                 pattern = "(?s)#{Regex.source(start_regex)}\\s*(.*?)\\s*#{Regex.source(end_regex)}"
+                 case Regex.run(Regex.compile!(pattern), content) do
+                   [_, doc] -> clean_doc(doc)
+                   _ -> nil
+                 end
+              _ -> nil
+            end
+
+            # 2. Fallback to Line Comments
+            if intent_from_block do
+               intent_from_block
+            else
+               prefix = Map.get(rules, :line_comment)
+               if prefix do
+                  extract_continuous_comments(content, prefix)
+               else
+                  "System file (Binary or Data)."
+               end
+            end
+        end
+    end
+  end
+
+  defp clean_doc(doc) do
+    doc |> String.split("\n") |> Enum.map(&String.trim/1) |> Enum.join(" ") |> String.trim()
+  end
+
+  defp extract_continuous_comments(content, prefix) do
+    # Optimized: Only look at the first 5kb to avoid RAM-bombing on large files
+    head = String.slice(content, 0, 5000)
+    
+    lines = String.split(head, "\n")
+    
+    # Handle Shebangs (skip if first line starts with #!)
+    lines = case lines do
+      ["#!" <> _ | rest] -> rest
+      _ -> lines
+    end
+
+    comments = Enum.take_while(lines, &String.starts_with?(String.trim(&1), prefix))
+    
+    if comments != [] do
+       Enum.map(comments, fn l -> String.trim(l) |> String.replace_prefix(prefix, "") |> String.trim() end)
+       |> Enum.filter(&(&1 != "")) |> Enum.join(" ")
+    else
+      "No header comments found."
+    end
+  end
+
+  # --- Dimension 2: The Functional Surface [STRUCTURE] ---
+  defp get_structure(path, content, rules) do
+     ext = Path.extname(path) |> String.downcase()
+     cond do
+       ext in [".ex", ".exs"] ->
+          try do
+            case Code.string_to_quoted(content) do
+              {:ok, quoted} ->
+                {modules, functions} = analyze_elixir_structure(quoted)
+                "Module: #{Enum.join(modules, ", ")} | Exports: #{Enum.join(functions, ", ")}"
+              _ -> "Structure analysis failed (Syntax Error)."
+            end
+          rescue
+            _ -> "Structure analysis failed (Parser Crash)."
+          end
+       ext == ".md" ->
+          headers = Regex.scan(~R/^#{1,3}\s+(.+)$/m, content) |> Enum.map(&List.last/1)
+          "Headers: #{Enum.join(headers, " > ")}"
+       ext == ".json" ->
+          # Very naive top-level key extraction
+          keys = Regex.scan(~r/"([a-zA-Z0-9_-]+)"\s*:/, content) 
+                 |> Enum.map(&List.last/1) 
+                 |> Enum.uniq() 
+                 |> Enum.take(20)
+          "JSON Keys: #{Enum.join(keys, ", ")}"
+       ext == ".csv" ->
+          header_line = String.split(content, "\n") |> List.first() |> String.split(",") |> Enum.map(&String.trim/1)
+          "CSV Columns: #{Enum.join(header_line, ", ")}"
+       ext in ~w(.log .out .err) ->
+          has_errors = String.contains?(String.upcase(content), "ERROR")
+          "Log features: #{if has_errors, do: "CONTAINS ERRORS", else: "Clean"}"
+       true ->
+          cond do
+            Map.get(rules, :is_binary) ->
+              if ext in ~w(.zip .tar .gz .7z .rar .jar .war .ear .iso), do: "Binary container/Archive.", else: "Binary executable/Deployment artifact."
+            true ->
+              # Regex-based extraction using rules
+              pattern = Map.get(rules, :function_pattern)
+              if pattern do
+                 funcs = Regex.scan(pattern, content)
+                         |> Enum.map(&List.last/1)
+                         |> Enum.uniq()
+                         |> Enum.take(30)
+                 "Functions/Defs: #{Enum.join(funcs, ", ")}"
+              else
+                 "Structure implicit or undefined."
+              end
+          end
+     end
+  end
+
+  defp analyze_elixir_structure(quoted) do
+    {_ast, acc} = Macro.prewalk(quoted, {[], []}, fn
+      {:defmodule, _, [{:__aliases__, _, names} | _]}, {mods, funs} ->
+        {nil, {[Enum.join(names, ".") | mods], funs}}
+      {:def, _, [{name, _, args} | _]}, {mods, funs} ->
+        {nil, {mods, funs ++ ["#{name}/#{length(args || [])}"]}}
+      node, acc -> {node, acc}
+    end)
+    {Enum.reverse(elem(acc, 0)), Enum.reverse(elem(acc, 1))}
+  end
+
+  # --- Dimension 3: [IMPORTS] ---
+  defp get_imports(content, rules) do
+    if Map.get(rules, :is_binary) do
+       "Not applicable to binary artifacts."
+    else
+      pattern = Map.get(rules, :import_pattern)
+      if pattern do
+        Regex.scan(pattern, content)
+        |> Enum.map(&List.last/1)
+        |> Enum.uniq()
+        |> Enum.join(", ")
+        |> case do
+          "" -> "None detected."
+          s -> s
+        end
+      else
+        "Import extraction not supported."
+      end
+    end
+  end
+
+  # --- Dimension 4: [COMMENTS] ---
+  defp get_all_comments(content, rules) do
+    if Map.get(rules, :is_binary) do
+       "Not applicable to binary artifacts."
+    else
+      line_prefix = Map.get(rules, :line_comment)
+      block_def = Map.get(rules, :block_comment)
+
+      # 1. Extract Line Comments (Unanchored as per user request: Catch all potential comments)
+      line_comments = if line_prefix do
+         # Use regex scan instead of String.split to avoid RAM explosion
+         # Matches: Anything -> prefix -> capture content
+         # We allow false positives (like URLs) to ensure we don't miss inline comments
+         pattern = ~r/#{Regex.escape(line_prefix)}(.*)$/m
+         Regex.scan(pattern, content)
+         |> Enum.map(fn 
+              [_, capture] -> String.trim(capture)
+              _ -> ""
+            end)
+         |> Enum.filter(&(&1 != ""))
+      else
+        []
+      end
+
+      # 2. Extract Block Comments
+      block_comments = case block_def do
+        {start_regex, end_regex} ->
+            # robustly scan for all block comments
+            pattern = "(?s)#{Regex.source(start_regex)}(.*?)#{Regex.source(end_regex)}"
+            case Regex.compile(pattern) do
+              {:ok, regex} ->
+                Regex.scan(regex, content)
+                |> Enum.map(fn match -> 
+                     # match is usually [full_match, capture] or just [full_match]
+                     List.last(match) |> String.trim()
+                   end)
+              _ -> []
+            end
+        _ -> []
+      end
+
+      all = line_comments ++ block_comments
+      if all == [] do
+        "No comments found."
+      else
+        # Limit size to prevent massive blobs
+        Enum.join(all, " -- ") |> String.slice(0, 5000) 
+      end
+    end
+  end
+
+  # --- Dimension 5: Keywords ---
+  defp get_keywords(path, content, rules) do
+     stop_words = ~w(the a an and or but if then else for each while in of to is as with from which this that these those return import package end do void public class const var let module def fn function string int bool)
+     
+     source = if Map.get(rules, :is_binary), do: Path.basename(path), else: content
+
+     source
+     |> String.split(~r/[^a-zA-Z0-9_]+/, trim: true)
+     |> Enum.reduce(%{}, fn token, acc -> score_token(token, acc, stop_words) end)
+     |> Enum.sort_by(fn {_word, score} -> score end, :desc)
+     |> Enum.take(10) # Expanded to 10
+     |> Enum.map(fn {word, _} -> word end)
+     |> Enum.join(", ")
+  end
+
+  defp score_token(token, acc, stop_words) do
+    lower = String.downcase(token)
+    if String.length(token) < 3 or Enum.member?(stop_words, lower) or String.match?(token, ~r/^[0-9]+$/) do
+      acc
+    else
+      base_score = Map.get(acc, token, 0)
+      additional = 1
+      additional = if String.match?(token, ~r/^[A-Z][a-z]+[A-Z]/), do: additional + 2, else: additional
+      Map.put(acc, token, base_score + additional)
+    end
+  end
+
+  # --- Dimension 6: Geography ---
+  defp get_geography(path) do
+    components = Path.split(path) |> Enum.reverse()
+    cond do
+      "controllers" in components -> "Web Controller"
+      "views" in components -> "Web View"
+      "templates" in components -> "UI Template"
+      "migrations" in components -> "DB Migration"
+      "models" in components -> "Data Model"
+      "services" in components -> "Service Layer"
+      "test" in components -> "Test Suite"
+      true -> "Path: #{Path.dirname(path)}"
+    end
+  end
+
+  # --- Dimension 7: Biology ---
+  defp get_anatomy(path, mime) do
+     triage_class = case CMS.Ingestion.TriageProtocol.identify(path) do
+       {:ok, c} -> c
+       _ -> :unknown
+     end
+     "OrganType: #{AnatomyEngine.classify_organ(triage_class, path, mime)} | Metabolism: #{AnatomyEngine.classify_metabolism(path, triage_class)}"
+  end
+end
+
+
 
 ------------------------------------------------------------
 File: mime_guard.ex
@@ -14656,7 +14947,7 @@ defmodule CMS.Ingestion.ExclusionCortex do
 
   require Logger
 
-  @default_blocklist ~w(.git .svn node_modules _build target venv __pycache__ deps priv mnesia_store .elixir_ls memory_cartridges .gemini)
+  @default_blocklist ~w(.git .svn node_modules _build target venv __pycache__ deps priv mnesia_store .elixir_ls memory_cartridges .gemini locale locale-archive gconv zoneinfo terminfo)
   @max_file_size_bytes 100 * 1024 * 1024 # 100MB
 
   @doc """

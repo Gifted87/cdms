@@ -396,12 +396,19 @@ defmodule CREMS.Ingestion.ModellingAgent do
   end
 
   defp is_significant_process?(pid) do
-    # :proc_lib.translate_initial_call is CRITICAL. 
-    # Without it, we only see {:proc_lib, :init_p, 5} instead of {MyApp.Server, ...}
-    case :proc_lib.translate_initial_call(pid) do
+    # 1. Registered Name? (Subjectively Important)
+    has_name? = case Process.info(pid, :registered_name) do
+      {:registered_name, name} when is_atom(name) -> true
+      _ -> false
+    end
+
+    # 2. Then check if it is a Significant OTP Behaviour (GenServer, Supervisor, Agent)
+    is_behaviour? = case :proc_lib.translate_initial_call(pid) do
       {module, _, _} -> is_behavioural_module?(module)
       _ -> false
     end
+    
+    has_name? or is_behaviour?
   end
 
   defp is_behavioural_module?(module) do
@@ -425,18 +432,30 @@ defmodule CREMS.Ingestion.ModellingAgent do
   
   # --- Infrastructure Blacklist (Renamed/Preserved) ---
   defp check_infrastructure_blacklist(pid) do
-
     # Skip CREMS infrastructure to prevent infinite modeling cascade
-    case Process.info(pid, [:registered_name, :initial_call, :dictionary]) do
+    case Process.info(pid, [:registered_name, :dictionary]) do
       nil -> 
         true  # Process died, skip it
       
       info ->
         registered_name = Keyword.get(info, :registered_name)
-        initial_call = Keyword.get(info, :initial_call)
         dictionary = Keyword.get(info, :dictionary, [])
         
-        # Skip if registered under CREMS/CMS namespace
+        # 1. Translated Initial Call (Most Reliable)
+        {module, _func, _args} = 
+          case :proc_lib.translate_initial_call(pid) do
+            {m, f, a} -> {m, f, a}
+            _ -> {nil, nil, nil}
+          end
+
+        module_str = if module, do: inspect(module), else: ""
+
+        skip_by_module = 
+          String.contains?(module_str, "CMS") or 
+          String.contains?(module_str, "CREMS") or
+          module in [Registry, Task.Supervised, Task]
+        
+        # 2. Registered Name (Fallback)
         skip_by_name = case registered_name do
           name when is_atom(name) ->
             name_str = Atom.to_string(name)
@@ -447,14 +466,7 @@ defmodule CREMS.Ingestion.ModellingAgent do
           _ -> false
         end
         
-        # Skip Task.Supervisor workers (includes ModellingAgents)
-        skip_by_initial = case initial_call do
-          {Task.Supervised, _, _} -> true
-          {Task, _, _} -> true
-          _ -> false
-        end
-        
-        # Skip if spawned by our SwarmSupervisor (check ancestors)
+        # 3. Ancestry Check
         skip_by_ancestry = case Keyword.get(dictionary, :"$ancestors") do
           ancestors when is_list(ancestors) ->
             Enum.any?(ancestors, fn ancestor ->
@@ -469,18 +481,7 @@ defmodule CREMS.Ingestion.ModellingAgent do
           _ -> false
         end
         
-        # Skip core infrastructure
-        skip_by_module = case initial_call do
-          {GenServer, _, _} -> 
-            # Allow GenServers unless they're explicitly CREMS/CMS
-            false
-          {Supervisor, _, _} -> true
-          {Registry, _, _} -> true
-          {:proc_lib, :init_p, _} -> true
-          _ -> false
-        end
-        
-        skip_by_name or skip_by_initial or skip_by_ancestry or skip_by_module
+        skip_by_module or skip_by_name or skip_by_ancestry
     end
   end
 

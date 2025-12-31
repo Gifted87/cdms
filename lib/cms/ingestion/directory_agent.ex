@@ -38,7 +38,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
   @impl true
   def handle_info(:genesis_sequence, state) do
     # 1. Instantiate SELF as a Node (Representation of the Directory)
-    case ensure_directory_node(state.path, state.parent_id, state.spatial_coords, state.width_descriptor) do
+    case ensure_directory_node(state.path, state.parent_id, state.spatial_coords, state.width_descriptor, state.opts) do
       nil ->
         Logger.error("DirectoryAgent: Failed to ensure directory node for #{state.path}. Wavefront halted.")
         {:noreply, state}
@@ -106,8 +106,8 @@ defmodule CMS.Ingestion.DirectoryAgent do
                  _ -> nil
                end
             end
-          end, max_concurrency: 1, timeout: :infinity)
-          |> Enum.map(fn {:ok, result} -> result end)
+          end, max_concurrency: 5, timeout: :infinity)
+          |> Enum.flat_map(fn {:ok, result} -> [result]; _ -> [] end)
           |> Enum.filter(& &1)
 
         all_children = children_results
@@ -155,7 +155,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
     end)
   end
 
-  defp ensure_directory_node(path, parent_id, spatial_coords, width_descriptor) do
+  defp ensure_directory_node(path, parent_id, spatial_coords, width_descriptor, opts) do
     uuid = UUID.uuid5(:oid, path)
 
     # Idempotency Check: See if node already exists in Mnesia
@@ -166,7 +166,8 @@ defmodule CMS.Ingestion.DirectoryAgent do
         # Existing node found but it was a failure. Clean up and re-ingest.
         Logger.info("DirectoryAgent: Re-ingesting previously failed node: #{path}")
         :mnesia.dirty_delete(:nodes_table, uuid)
-        do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor)
+        cog_mode = Keyword.get(opts, :cognitive_mode, :generative)
+        do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor, cog_mode)
 
       [{:nodes_table, ^uuid, _hash, _parent, _head, _body, _tail, _stack, _provenance, _antenna}] ->
         # Node exists and looks valid. Ensure actor is running.
@@ -177,13 +178,15 @@ defmodule CMS.Ingestion.DirectoryAgent do
         uuid
 
       [] ->
-        do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor)
+        # Propagate cognitive mode to directory summary generation
+        cog_mode = Keyword.get(opts, :cognitive_mode, :generative)
+        do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor, cog_mode)
     end
   end
 
-  defp do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor) do
-    # Generate meaningful directory summary using LLM
-    case generate_directory_summary(path) do
+  defp do_ensure_directory_node(uuid, path, parent_id, spatial_coords, width_descriptor, cog_mode) do
+    # Generate meaningful directory summary
+    case generate_directory_summary(path, cog_mode) do
       {:ok, {summary, concepts}} ->
         # Generate proper embedding from the summary
         embedding = case CMS.Tool.Embedder.generate("#{Path.basename(path)}: #{summary}", @embedding_model) do
@@ -200,7 +203,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
         metabolism = :static_bone  # Directories are always static bone
         
         # Calculate Salience for the directory
-        salience = CMS.SalienceEngine.calculate(summary, %{"priority" => "high", "type" => "directory"})
+        salience = CMS.SalienceEngine.calculate(summary, %{"priority" => "high", "type" => "directory"}, mode: cog_mode)
         
         # Create DataTail with complete anatomical ledger
         data_ledger = CMS.DataTail.new(
@@ -248,7 +251,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
   end
 
   # Generate a meaningful summary for a directory based on its contents
-  defp generate_directory_summary(path) do
+  defp generate_directory_summary(path, cog_mode) do
     dir_name = Path.basename(path)
     
     # List contents to provide context
@@ -294,18 +297,25 @@ defmodule CMS.Ingestion.DirectoryAgent do
     OUTPUT JSON: { "summary": "A directory containing...", "concepts": ["Directory", "..."] }
     """
     
-    # Call Ollama for summarization
-    case CMS.Infrastructure.OllamaBridge.summarize(prompt, "qwen3:0.6b", path) do
-      {:ok, %{"summary" => s, "concepts" => c}} when is_binary(s) and is_list(c) ->
-        {:ok, {s, c}}
-      {:ok, %{"summary" => s}} when is_binary(s) ->
-        {:ok, {s, [dir_name, "Directory"]}}
-      {:error, reason} ->
-        Logger.error("DirectoryAgent: Ollama summarization failed for #{path}: #{inspect(reason)}")
-        {:error, reason}
-      other ->
-        Logger.error("DirectoryAgent: Unexpected Ollama response for #{path}: #{inspect(other)}")
-        {:error, :unexpected_response}
+    if cog_mode == :deterministic do
+      # Use Deterministic Aggregator for directory as well
+      summary = CMS.Ingestion.DeterministicAggregator.aggregate(path, contents, "inode/directory")
+      concepts = [dir_name, "Directory"]
+      {:ok, {summary, concepts}}
+    else
+      # Call Ollama for summarization
+      case CMS.Infrastructure.OllamaBridge.summarize(prompt, "qwen3:0.6b", path) do
+        {:ok, %{"summary" => s, "concepts" => c}} when is_binary(s) and is_list(c) ->
+          {:ok, {s, c}}
+        {:ok, %{"summary" => s}} when is_binary(s) ->
+          {:ok, {s, [dir_name, "Directory"]}}
+        {:error, reason} ->
+          Logger.error("DirectoryAgent: Ollama summarization failed for #{path}: #{inspect(reason)}")
+          {:error, reason}
+        other ->
+          Logger.error("DirectoryAgent: Unexpected Ollama response for #{path}: #{inspect(other)}")
+          {:error, :unexpected_response}
+      end
     end
   end
 

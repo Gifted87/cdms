@@ -21,17 +21,36 @@ defmodule CREMS.Ingestion.RuntimeSwarm do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc """
+  Manually triggers the Genesis sequence to start modelling the OS/BEAM.
+  """
+  def start_genesis do
+    GenServer.cast(__MODULE__, :genesis)
+  end
+
   # --- Callbacks ---
 
   @impl true
   def init(_opts) do
-    # Trigger Genesis after a short delay to ensure system stability
-    Process.send_after(self(), :genesis, 1000)
+    # Manual Start Only: We do NOT trigger genesis automatically.
+    # Waiting for user to call start_genesis/0.
+    Logger.info("[SWARM] RuntimeSwarm started. Waiting for manual genesis...")
     {:ok, %{status: :initializing, mother_node_id: nil}}
   end
 
   @impl true
-  def handle_info(:genesis, state) do
+  def handle_cast(:genesis, state) do
+     if state.status == :initializing do
+        send(self(), :genesis_internal)
+        {:noreply, state}
+     else
+        Logger.warning("[SWARM] Genesis already triggered!")
+        {:noreply, state}
+     end
+  end
+
+  @impl true
+  def handle_info(:genesis_internal, state) do
     Logger.info("[SWARM] Initiating Runtime Genesis...")
 
     # 1. Mother Node Discovery
@@ -39,8 +58,6 @@ defmodule CREMS.Ingestion.RuntimeSwarm do
     
     # 2. Injection: Spawn first ModellingAgent
     # Targeting PID 1 (OS Root) as the primary entry point
-    # In a container/restricted env, we might target our own PID, 
-    # but the Spec asks for PID 1 (Host Kernel).
     spawn_root_agent(mother_node.id)
 
     {:noreply, %{state | status: :active, mother_node_id: mother_node.id}}
@@ -94,5 +111,12 @@ defmodule CREMS.Ingestion.RuntimeSwarm do
     # In BEAM-only mode, we'd start at :erlang.whereis(:init) or similar.
     # Spec says: "Spawns the first ModellingAgent targeting the Root PID (PID 1 for OS)"
     CREMS.Ingestion.ModellingAgent.spawn_agent(1, %{parent_id: mother_id})
+    
+    # RIGOROUS FIX: Explicitly target the BEAM VM process to ensure Erlang-level modeling occurs
+    # even if the OS traversal (from PID 1) fails to traverse to the BEAM process.
+    beam_pid = System.pid() |> String.to_integer()
+    if beam_pid != 1 do
+       CREMS.Ingestion.ModellingAgent.spawn_agent(beam_pid, %{parent_id: mother_id})
+    end
   end
 end

@@ -1,34 +1,30 @@
 import os
-import re
 
-# CORRECT PATH found in your codebase dump
-file_path = "lib/cms/agents/node_supervisor.ex"
+# The file that failed compilation
+file_path = "lib/cms/ingestion/file_ingestion_task.ex"
 
-print(f"Patching {file_path} to ignore TrackingAgents...")
+print(f"Repairing syntax error in {file_path}...")
 
 try:
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # The buggy implementation: Selects EVERYTHING (Match Spec: {_, _, _})
-    bad_regex = r"Registry\.select\(CMS\.NodeRegistry,\s*\[\{\{:_,\s*:\"\$1\",\s*:_\},\s*\[\],\s*\[:\"\$1\"\]\}\]\)"
+    # The issue: content = ... else: \"[BINARY OMITTED]\"
+    # The fix:   content = ... else: "[BINARY OMITTED]"
     
-    # The fix: Selects ONLY keys that are BINARIES (Strings)
-    # The MatchSpec means: Match {Key, PID, _}, where is_binary(Key) is true, return PID.
-    good_code = 'Registry.select(CMS.NodeRegistry, [{{:"$1", :"$2", :_}, [{:is_binary, :"$1"}], [:"$2"]}])'
-
-    if re.search(bad_regex, content):
-        new_content = re.sub(bad_regex, good_code, content)
+    # We replace the escaped version with the clean version
+    bad_syntax = r'else: \"[BINARY OMITTED]\"'
+    good_syntax = r'else: "[BINARY OMITTED]"'
+    
+    if bad_syntax in content:
+        new_content = content.replace(bad_syntax, good_syntax)
         
-        with open(file_path, "w", encoding="utf-8") as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
             
-        print("✅ Success! NodeSupervisor patched.")
-        
-    elif good_code in content:
-        print("⚠️  File is already patched.")
+        print("✅ Syntax fixed! Backslashes removed.")
     else:
-        print("❌ Error: Could not find the Registry.select call to patch.")
+        print("⚠️  Could not find the specific syntax error pattern. Please check line 111 manually.")
 
 except FileNotFoundError:
-    print(f"❌ Error: File {file_path} NOT FOUND. Please verify the file structure manually.")
+    print(f"❌ Error: File {file_path} not found.")

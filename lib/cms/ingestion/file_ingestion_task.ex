@@ -45,7 +45,10 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
         # Step 1: Physical Assessment & Decision Gate
         case ExclusionCortex.assess_file(path) do
-          {:ok, mode, _reason} ->
+          {:ok, assessed_mode, _reason} ->
+            # Prioritize cognitive_mode from opts over physical assessment
+            # This allows deterministic mode to override LLM assessment
+            mode = Keyword.get(opts, :cognitive_mode, assessed_mode)
             provenance = Keyword.get(opts, :provenance, %{"source" => "local_ingestion"})
             process_file(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, provenance)
 
@@ -62,22 +65,36 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
     # Step 3: The Cognitive Request (Ollama - Inference)
     cognition_result = 
-      if mode == :mode_a_deep do
-        # Use Qwen via Ollama for summarization
-        case OllamaBridge.summarize(content, @summary_model, path) do
-          {:ok, %{"summary" => s, "concepts" => c}} ->
-            case ExclusionCortex.validate_cognition(s) do
-              :ok -> {:ok, {s, c}}
-              {:error, gate_reason} -> 
-                Logger.error("Ingestion ABORTED for #{path}: Semantic Gate failure (#{gate_reason})")
-                {:error, :semantic_gate_failure}
-            end
-          {:error, ollama_reason} -> 
-            Logger.error("Ingestion ABORTED for #{path}: Ollama error (#{inspect(ollama_reason)})")
-            {:error, :ollama_failure}
-        end
-      else
-        {:ok, {"Shallow representation of binary or large file.", []}}
+      cond do
+        mode == :deterministic ->
+          # Use Deterministic Aggregator (Dimension 1-5)
+          summary = CMS.Ingestion.DeterministicAggregator.aggregate(path, content, mime)
+          # In deterministic mode, we can extract keywords as concepts
+          concepts = summary 
+                     |> String.split("[KEYWORDS]: ") 
+                     |> List.last() 
+                     |> String.split("\n") 
+                     |> List.first() 
+                     |> String.split(", ")
+          {:ok, {summary, concepts}}
+
+        mode == :mode_a_deep ->
+          # Use Qwen via Ollama for summarization
+          case OllamaBridge.summarize(content, @summary_model, path) do
+            {:ok, %{"summary" => s, "concepts" => c}} ->
+              case ExclusionCortex.validate_cognition(s) do
+                :ok -> {:ok, {s, c}}
+                {:error, gate_reason} -> 
+                  Logger.error("Ingestion ABORTED for #{path}: Semantic Gate failure (#{gate_reason})")
+                  {:error, :semantic_gate_failure}
+              end
+            {:error, ollama_reason} -> 
+              Logger.error("Ingestion ABORTED for #{path}: Ollama error (#{inspect(ollama_reason)})")
+              {:error, :ollama_failure}
+          end
+
+        true ->
+          {:ok, {"Shallow representation of binary or large file.", []}}
       end
 
     case cognition_result do
@@ -90,13 +107,22 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
   defp continue_ingestion(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, content, hash, mime, summary, concepts, provenance) do
 
+    # -- PATCH: Sanitize Inputs --
+    content = if String.valid?(content), do: content, else: "[BINARY OMITTED]"
+    summary = if String.valid?(summary), do: summary, else: "[BINARY OMITTED]"
+    # ----------------------------
+    # -- UTF-8 SANITIZATION PATCH --
+    safe_content = if String.valid?(content), do: content, else: "[BINARY CONTENT OMITTED]"
+    # ------------------------------
+    
+
     # Step 4: Vectorization (Python ML Bridge)
     # Replaces OllamaBridge.embed with CMS.Tool.Embedder.generate
     vector_input = """
     FILE: #{Path.basename(path)}
     SUMMARY: #{summary}
     CONTENT:
-    #{content}
+    #{safe_content}
     """
     
     # Defaults to all-MiniLM-L6-v2 in ml_bridge.py
@@ -110,7 +136,7 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
     # Step 5: Salience & Antenna Tuning
     geography = CMS.Ingestion.FractalAperture.analyze_geography(path)
-    base_salience = CMS.SalienceEngine.calculate(summary, provenance)
+    base_salience = CMS.SalienceEngine.calculate(summary, provenance, mode: mode)
     salience = CMS.Ingestion.FractalAperture.adjust_salience(base_salience, geography)
     
     antenna = NodeAntenna.new(path, salience)
@@ -161,7 +187,7 @@ defmodule CMS.Ingestion.FileIngestionTask do
     # Create DataTail with full Anatomical Ledger
     data_ledger = DataTail.new(path, hash, mime, salience, essence.permissions, essence.ownership, essence.immutable_flags, essence.genetic_provenance, metabolism)
     
-    body = NodeBody.new(data_head, if(mode == :mode_a_deep, do: content, else: nil), data_ledger, if(mode == :mode_a_deep, do: :deep, else: :shallow))
+    body = NodeBody.new(data_head, if(mode in [:mode_a_deep, :deterministic], do: content, else: nil), data_ledger, if(mode == :mode_a_deep, do: :deep, else: :shallow))
     
     node = Node.new(head, body, antenna, provenance)
 

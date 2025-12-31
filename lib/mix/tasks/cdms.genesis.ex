@@ -8,19 +8,25 @@ defmodule Mix.Tasks.Cdms.Genesis do
     # 0. Start the App
     Mix.Task.run("app.start")
     
-    path = case args do
-      [p] -> Path.expand(p)
-      _ -> 
-        Mix.raise("Usage: mix cdms.genesis /path/to/target")
+    {opts, [path_raw], _} = OptionParser.parse(args, switches: [mode: :string])
+    
+    path = Path.expand(path_raw || ".")
+    cognitive_mode = case opts[:mode] do
+      "deterministic" -> :deterministic
+      _ -> :generative
+    end
+
+    if path == "." and args == [] do
+      Mix.raise("Usage: mix cdms.genesis /path/to/target [--mode deterministic|generative]")
     end
 
     if not File.dir?(path) do
       Mix.raise("Invalid directory: #{path}")
     end
 
-    Logger.info("Starting CDMS Genesis for: #{path}")
+    Logger.info("Starting CDMS Genesis for: #{path} (Mode: #{cognitive_mode})")
 
-    case CMS.Services.GenesisCrawler.run(path) do
+    case CMS.Services.GenesisCrawler.run(path, cognitive_mode: cognitive_mode) do
       {:ok, _} ->
         Logger.info("Genesis complete. Full cognitive graph established.")
         Logger.info("Monitor logs for progress. Press Ctrl+C to exit.")

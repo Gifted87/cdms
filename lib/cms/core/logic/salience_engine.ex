@@ -12,7 +12,7 @@ defmodule CMS.SalienceEngine do
 
   # Configuration for the local Python Bridge (e.g., LLM or BERT-based classifier)
   @bridge_url "http://localhost:5000/api/v1/salience"
-  @default_timeout 2_000 # 2 seconds - Fail fast to keep ingestion speed high
+  @default_timeout 10_000 # 10 seconds - Accommodate higher concurrency/queueing
 
   # Keywords that imply high criticality (Fallback Logic)
   @critical_keywords ~w(error crash panic critical security breach alert fail exception timeout deadlock)
@@ -22,8 +22,8 @@ defmodule CMS.SalienceEngine do
   Calculates a score (0.0 to 1.0) based on content analysis and context.
   It attempts to use the ML Bridge first; otherwise, it falls back to heuristics.
   """
-  @spec calculate(String.t(), map()) :: float()
-  def calculate(fact_text, provenance_metadata) do
+  @spec calculate(String.t(), map(), keyword()) :: float()
+  def calculate(fact_text, provenance_metadata, _opts \\ []) do
     # 1. Attempt External Semantic Analysis (Fix 5)
     case call_ml_bridge(fact_text, provenance_metadata) do
       {:ok, score} ->

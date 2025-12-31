@@ -60,7 +60,6 @@ defmodule CMS.Application do
       # 5. Ingestion & Query Services
       CMS.Infrastructure.OllamaBridge,
       CMS.Services.LiveWire,
-      CMS.Symbiosis.ProcessLinker, # Section 16: CDMS/CREMS Symbiosis
       {Task.Supervisor, name: CMS.Ingestion.TaskSupervisor},
       CMS.BroadcastCoordinator,
 

@@ -35,7 +35,7 @@ defmodule CREMS.Agents.TrackingAgent do
     history_limit = Keyword.get(opts, :history_limit, 50)
 
     # Vigilant Loop: 1 second wakeup
-    Process.send_after(self(), :observe, 1000)
+    Process.send_after(self(), :observe, 60_000)
     
     Logger.info("[TRACKER] Vigilant Observer started for Node #{node_id}")
     
@@ -146,7 +146,7 @@ defmodule CREMS.Agents.TrackingAgent do
     new_state = observe_reality(state)
     
     # Schedule next observation (Periodic Role 1)
-    Process.send_after(self(), :observe, 1000)
+    Process.send_after(self(), :observe, 60_000)
     {:noreply, new_state}
   end
 

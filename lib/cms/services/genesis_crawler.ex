@@ -12,9 +12,10 @@ defmodule CMS.Services.GenesisCrawler do
   """
   def run(path, options \\ []) do
     path = Path.expand(path)
-    Logger.info("GENESIS: Initiating Cold Boot for #{path}")
+    cognitive_mode = Keyword.get(options, :cognitive_mode, :generative)
+    Logger.info("GENESIS: Initiating Cold Boot for #{path} (Mode: #{cognitive_mode})")
 
-    with :ok <- check_connectivity(),
+    with :ok <- check_connectivity(cognitive_mode),
          :ok <- __MODULE__.Phase1.run(path, options),
          :ok <- __MODULE__.Phase2.run() do
       Logger.info("GENESIS: Cold Boot COMPLETE. Full cognitive graph established.")
@@ -26,7 +27,12 @@ defmodule CMS.Services.GenesisCrawler do
     end
   end
 
-  defp check_connectivity do
+  defp check_connectivity(:deterministic) do
+    Logger.info("GENESIS: Deterministic Mode enabled. Bypassing Ollama connectivity check.")
+    :ok
+  end
+
+  defp check_connectivity(_) do
     Logger.info("GENESIS: Checking Ollama Connectivity...")
     case CMS.Infrastructure.OllamaBridge.summarize("system check", @summary_model, nil) do
       {:ok, _} -> 
