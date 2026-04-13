@@ -5,7 +5,7 @@ defmodule CMS.Services.LiveWire do
 
   use GenServer
   require Logger
-  alias CMS.Infrastructure.OllamaBridge
+  alias CMS.Infrastructure.GeminiBridge
 
   @poll_interval 1000
   @debounce_ms 500
@@ -227,19 +227,19 @@ defmodule CMS.Services.LiveWire do
       
       # Re-Cognize with Robust Fallback
       {summary, concepts, embedding} = 
-        case OllamaBridge.summarize(content) do
+        case GeminiBridge.summarize(content) do
           {:ok, %{"summary" => s, "concepts" => c}} ->
              # Summary succeeded, try embedding
-             case OllamaBridge.embed("#{Path.basename(path)}: #{s}") do
+             case GeminiBridge.embed("#{Path.basename(path)}: #{s}") do
                {:ok, vec_list} -> 
                   {s, c, Nx.tensor(vec_list)}
                _ -> 
-                  Logger.warning("LiveWire: Embedding timed out for \#{path}. Using new summary but old vector.")
+                  Logger.warning("LiveWire: Embedding timed out for #{path}. Using new summary but old vector.")
                   {s, c, old_node.head.embedding}
              end
           _ -> 
              # Total cognitive failure (Timeout/Busy) -> Preserve old cognitive state
-             Logger.warning("LiveWire: Cognition timed out for \#{path}. Preserving old semantics.")
+             Logger.warning("LiveWire: Cognition timed out for #{path}. Preserving old semantics.")
              {old_node.body.data_head.summary, old_node.body.data_head.concepts, old_node.head.embedding}
         end
 
@@ -285,4 +285,3 @@ defmodule CMS.Services.LiveWire do
     Process.send_after(self(), :poll_fs, @poll_interval)
   end
 end
-

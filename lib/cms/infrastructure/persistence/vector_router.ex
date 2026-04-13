@@ -47,6 +47,19 @@ defmodule CMS.VectorRouter do
     find_by_name(path)
   end
 
+  def get_name_for_uuid(uuid) do
+    case :mnesia.dirty_read(:nodes_table, uuid) do
+      [{_table, ^uuid, _hash, _parent, _head, body, _tail, _stack, _provenance, _antenna}] ->
+        Path.basename(get_in(body, [:data_head, :summary]) || get_in(body, [:data_ledger, :physical_symlink]) || "unknown")
+      _ ->
+        case :mnesia.dirty_read(:nodes_table, uuid) do
+           [{_table, ^uuid, _hash, _parent, _head, body, _tail, _stack, _provenance}] ->
+             Path.basename(get_in(body, [:data_head, :summary]) || get_in(body, [:data_ledger, :physical_symlink]) || "unknown")
+           _ -> nil
+        end
+    end
+  end
+
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)

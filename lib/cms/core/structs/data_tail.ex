@@ -4,10 +4,11 @@ defmodule CMS.DataTail do
   Holds physical metadata and integrity anchors.
   """
 
-  @derive {Jason.Encoder, only: [:physical_symlink, :integrity_hash, :mime_definition, :last_mutation, :salience_score, :permissions, :ownership, :immutable_flags, :genetic_provenance, :metabolism]}
+  @derive {Jason.Encoder, only: [:physical_symlink, :integrity_hash, :last_linked_hash, :mime_definition, :last_mutation, :salience_score, :permissions, :ownership, :immutable_flags, :genetic_provenance, :metabolism]}
   defstruct [
     :physical_symlink, # Absolute path to the OS file
     :integrity_hash,   # SHA-256 hash of the content
+    :last_linked_hash, # Hash at time of last Phase 2 binding
     :mime_definition,  # Precise file type definition
     :last_mutation,    # DateTime of last detected change
     :chrono_stack,     # CMS.ChronoStack (History)
@@ -23,6 +24,7 @@ defmodule CMS.DataTail do
   @type t :: %__MODULE__{
     physical_symlink: String.t(),
     integrity_hash: String.t(),
+    last_linked_hash: String.t() | nil,
     mime_definition: String.t(),
     last_mutation: DateTime.t(),
     chrono_stack: CMS.ChronoStack.t(),
@@ -40,6 +42,7 @@ defmodule CMS.DataTail do
     %__MODULE__{
       physical_symlink: path,
       integrity_hash: hash,
+      last_linked_hash: nil,
       mime_definition: mime,
       last_mutation: DateTime.utc_now(),
       chrono_stack: CMS.ChronoStack.new(),

@@ -74,19 +74,6 @@ defmodule CMS.NodeActor do
     {:reply, score, state}
   end
 
-  @impl true
-  def handle_call(:recompute_edges, _from, state) do
-    # 1. Syntactic Edges (Synchronous AST Parsing)
-    new_node = CMS.Core.Logic.EdgeGenerator.generate_edges(state.node)
-    
-    # 2. Trigger Semantic Scatter-Gather (Asynchronous)
-    GenServer.cast(self(), :scatter_gather_edges)
-    
-    # Persist to both Mnesia and epoch logs
-    persist_node(new_node)
-    
-    {:reply, {:ok, new_node}, %{state | node: new_node}}
-  end
 
   @impl true
   def handle_cast({:update_node, new_node}, state) do
@@ -117,7 +104,7 @@ defmodule CMS.NodeActor do
   def handle_cast(:scatter_gather_edges, state) do
     # Perform direct scatter-gather to establish semantic edges
     # Now uses the unified EdgeGenerator logic
-    new_node = CMS.Core.Logic.EdgeGenerator.generate_semantic_edges(state.node)
+    new_node = CMS.Core.Logic.EdgeGenerator.generate_edges(state.node)
     
     if new_node.tail != state.node.tail do
       persist_node(new_node)
@@ -516,9 +503,9 @@ defmodule CMS.NodeActor do
     :ok
   end
 
-  # Helper to fetch threshold dynamically (Defaults to 0.7 if not set)
+  # Helper to fetch threshold dynamically (Defaults to 0.4 if not set)
   defp get_base_threshold do
-    Application.get_env(:acn_cms, :node_base_threshold, 0.25)
+    Application.get_env(:acn_cms, :node_base_threshold, 0.4)
   end
 
   defp is_directory?(node) do

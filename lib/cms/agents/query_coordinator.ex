@@ -225,10 +225,23 @@ defmodule CMS.QueryCoordinator do
       |> Enum.map(fn {_score, id} -> Map.get(state.fired_nodes, id) end)
       |> Enum.reject(&is_nil/1)
 
-    Logger.info("Coordinator #{state.query_id}: Finalizing query with #{length(results)} top results.")
-
-    # Send back to requestor
-    send(state.origin_pid, {:query_result, state.query_id, results})
+    if length(results) == 0 do
+      Logger.warning("Coordinator #{state.query_id}: Query too generic, no firing node found. Returning Mother Node.")
+      mother_node_id = "mother-0000-0000-0000-000000000001"
+      mother_data = 
+        case Registry.lookup(CMS.NodeRegistry, mother_node_id) do
+          [{pid, _}] ->
+            node_state = GenServer.call(pid, :get_state_snapshot)
+            {1.0, node_state.node}
+          [] ->
+            {1.0, %{id: mother_node_id, title: "Mother Node", body: %{summary: "Query was too generic."}}}
+        end
+      send(state.origin_pid, {:query_result, state.query_id, [mother_data]})
+    else
+      Logger.info("Coordinator #{state.query_id}: Finalizing query with #{length(results)} top results.")
+      # Send back to requestor
+      send(state.origin_pid, {:query_result, state.query_id, results})
+    end
   end
 
   defp update_top_k(list, new_entry, max_results) do

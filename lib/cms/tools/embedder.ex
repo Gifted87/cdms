@@ -12,7 +12,7 @@ defmodule CMS.Tool.Embedder do
   defp bridge_url do
     Application.get_env(:acn_cms, :embedder_bridge_url, "http://localhost:5000/api/v1/embed")
   end
-  @default_timeout 10_000 # 10 seconds
+  @default_timeout 60_000 # 60 seconds
 
   @doc """
   Generates a vector embedding for the given text using the ML Bridge.
@@ -21,8 +21,7 @@ defmodule CMS.Tool.Embedder do
     {:ok, Nx.Tensor.t()} - The vector as an Nx Tensor.
     {:error, term()} - If the bridge is down or returns an error.
   """
-  @spec generate(String.t(), String.t()) :: {:ok, Nx.Tensor.t()} | {:error, any()}
-  def generate(text, model_version) do
+  def generate(text, model_version, retries \\ 3) do
     # Prepare the payload matching ml_bridge.py's EmbeddingRequest schema
     payload = %{
       text: text,
@@ -35,12 +34,24 @@ defmodule CMS.Tool.Embedder do
         process_response(body)
 
       {:ok, %Req.Response{status: code, body: body}} ->
-        Logger.error("Embedder Bridge Error [#{code}]: #{inspect(body)}")
-        {:error, :bridge_error}
+        if retries > 0 do
+          Logger.warning("Embedder Bridge Error [#{code}]. Retrying...")
+          Process.sleep(2000)
+          generate(text, model_version, retries - 1)
+        else
+          Logger.error("Embedder Bridge Error [#{code}]: #{inspect(body)}")
+          {:error, :bridge_error}
+        end
 
       {:error, exception} ->
-        Logger.error("Embedder Connection Failed: #{inspect(exception)}")
-        {:error, :connection_failed}
+        if retries > 0 do
+          Logger.warning("Embedder Connection Failed (timeout/unreachable). Retrying... (#{retries} left)")
+          Process.sleep(3000)
+          generate(text, model_version, retries - 1)
+        else
+          Logger.error("Embedder Connection Failed: #{inspect(exception)}")
+          {:error, :connection_failed}
+        end
     end
   end
 

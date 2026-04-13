@@ -9,9 +9,22 @@ defmodule CMS.Core.Logic.EdgeGenerator do
   @doc """
   Generates all edges for a single node.
   """
-  def generate_edges(node) do
-    # Phase 4 Upgrade: Connectome Scanning
-    # We apply this after initial generation phases
+  def generate_edges(node, opts \\ []) do
+    force = Keyword.get(opts, :force, false)
+    current_hash = node.body.data_ledger.integrity_hash
+    last_hash = node.body.data_ledger.last_linked_hash
+    incremental? = Application.get_env(:acn_cms, :incremental_binding, true)
+
+    if not force and incremental? and current_hash == last_hash and last_hash != nil do
+      Logger.debug("EdgeGenerator: Skipping already linked node #{node.id}")
+      node
+    else
+      if superficial_node?(node) and not force do
+        Logger.debug("EdgeGenerator: Skipping connectome forgery for superficial node #{node.id}")
+        node
+      else
+        Logger.info("EdgeGenerator: Forging connectome for #{node.id}#{if force, do: " [FORCE]", else: ""}")
+      # Phase 4 Upgrade: Connectome Scanning
     structural_edges = CMS.Core.Logic.ConnectomeScanner.scan_skeleton(node)
     immune_edges = CMS.Core.Logic.ConnectomeScanner.scan_immune(node)
     nervous_edges = CMS.Core.Logic.ConnectomeScanner.scan_nervous(node)
@@ -47,6 +60,20 @@ defmodule CMS.Core.Logic.EdgeGenerator do
     end)
     
     %{node | tail: new_tail}
+    |> mark_as_linked(current_hash)
+    end
+    end
+  end
+
+  defp superficial_node?(node) do
+    mime = node.body.data_ledger.mime_definition
+    type = Map.get(node.provenance || %{}, "type")
+    
+    mime == "inode/directory" or type == "directory" or type == "ghost"
+  end
+
+  defp mark_as_linked(node, hash) do
+    put_in(node.body.data_ledger.last_linked_hash, hash)
   end
 
   @doc """
@@ -117,7 +144,7 @@ defmodule CMS.Core.Logic.EdgeGenerator do
     # Configuration matches IngestionEngine Spec
     # Differentiate thresholds for CDMS/CREMS
     is_crems = crems_node?(node.id)
-    conflict_threshold = if is_crems, do: 0.95, else: 0.8
+    conflict_threshold = if is_crems, do: 0.95, else: 0.98
     
     my_id = node.id
 
@@ -204,8 +231,8 @@ defmodule CMS.Core.Logic.EdgeGenerator do
   """
   def prime_candidates(embedding, my_id \\ nil) do
     # Configuration matches IngestionEngine Spec
-    # Differentiate threshold: 0.9 for CREMS, 0.4 for CDMS
-    min_score = if my_id && crems_node?(my_id), do: 0.9, else: 0.4
+    # Differentiate threshold: 0.9 for CREMS, 0.7 for CDMS
+    min_score = if my_id && crems_node?(my_id), do: 0.9, else: 0.7
     max_links = 3
     
     # 1. Fetch all drift info from the lock-free ETS index

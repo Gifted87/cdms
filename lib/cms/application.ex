@@ -58,7 +58,8 @@ defmodule CMS.Application do
       CMS.Core.Logic.PhysiologyEngine, # Phase 5: Metabolic Pulse Engine
 
       # 5. Ingestion & Query Services
-      CMS.Infrastructure.OllamaBridge,
+      CMS.Ingestion.NodeRegistry,
+      CMS.Infrastructure.GeminiBridge,
       CMS.Services.LiveWire,
       {Task.Supervisor, name: CMS.Ingestion.TaskSupervisor},
       CMS.BroadcastCoordinator,
@@ -85,6 +86,26 @@ defmodule CMS.Application do
         # 7. Post-Boot Hydration
         # Spawns node processes from epoch logs.
         CMS.Recovery.Hydrator.run()
+
+        # 8. Start Global Workflow if configured
+        if target_dir = System.get_env("CDMS_TARGET_DIR") do
+          Task.start(fn ->
+            Process.sleep(1000)
+            
+            node_count = :mnesia.table_info(:nodes_table, :size)
+            mode_str = System.get_env("CDMS_MODE") || "generative"
+            mode = if mode_str == "deterministic", do: :deterministic, else: :mode_a_deep
+
+            if node_count == 0 do
+              Logger.info("Starting Cold Boot Genesis on: #{target_dir}")
+            else
+              Logger.info("Starting Drift Synchronization on: #{target_dir} (Existing Nodes: #{node_count})")
+            end
+
+            CMS.Services.GenesisCrawler.run(target_dir, cognitive_mode: mode)
+          end)
+        end
+
         {:ok, pid}
 
       error -> 

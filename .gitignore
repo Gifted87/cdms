@@ -1,0 +1,32 @@
+# Elixir/Mix
+/_build
+/deps
+/*.beam
+/erl_crash.dump
+
+# Python/ML
+/__pycache__/
+*.py[cod]
+*$py.class
+/venv/
+/.venv/
+
+# Environment and Secrets
+.env
+
+# System State and Local Models
+.cdms_model/
+/memory_cartridges/
+/Mnesia*
+
+# Diagnostic Lists and Reports (Generated)
+*.txt
+cdms_exploration_report.md
+all_deleted.txt
+
+# IDEs and Editors
+.procoder/
+.idea/
+.vscode/
+*.swp
+*~

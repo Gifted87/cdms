@@ -20,40 +20,42 @@ defmodule CMS.Services.SystemMixer do
     
     Logger.info("System Mixer: Establishing connections for #{length(uuids)} nodes.")
 
-    # 2. Distribute Binding Tasks in parallel
+    # 2. Distribute Binding Tasks via functional streams
     uuids
-    |> Enum.map(fn uuid ->
-      Task.async(fn -> bind_node(uuid) end)
-    end)
-    |> Enum.each(&Task.await(&1, :infinity))
-
-    # 3. Stabilization Period (Scatter-Gather Wavefront)
-    # We wait a brief moment for semantic proposals to be processed by the actors.
-    Logger.info("System Mixer: Waiting for semantic gathering to stabilize...")
-    Process.sleep(500)
+    |> Task.async_stream(&bind_node/1,
+      max_concurrency: System.schedulers_online() * 2,
+      timeout: :infinity
+    )
+    |> Stream.run()
 
     Logger.info("System Mixer: Phase 2 (Binding) complete.")
     :ok
   end
 
   @doc """
-  Binds a single node to its peers.
+  Binds a single node to its peers using pure functional mapping.
   """
   def bind_node(uuid) do
-    case NodeSupervisor.get_node_pid(uuid) do
-      nil ->
-        Logger.warning("System Mixer: Node #{uuid} not active. Skipping.")
-        {:error, :not_active}
-      pid ->
-        # Trigger recompute_edges on the NodeActor
-        case GenServer.call(pid, :recompute_edges, 60_000) do
-          {:ok, _node} -> 
-            Logger.debug("System Mixer: Bound node #{uuid}")
-            :ok
-          error -> 
-            Logger.error("System Mixer: Failed to bind node #{uuid}: #{inspect(error)}")
-            error
+    case NodeSupervisor.get_node(uuid) do
+      {:ok, node} ->
+        # PRE-EMPTIVE OPTIMIZATION:
+        # If hash matches, we don't even need to call EdgeGenerator (silencing the log)
+        current_hash = node.body.data_ledger.integrity_hash
+        last_hash = node.body.data_ledger.last_linked_hash
+        
+        if current_hash != last_hash or last_hash == nil do
+           processed_node = CMS.Core.Logic.EdgeGenerator.generate_edges(node)
+           
+           if processed_node != node do
+             NodeSupervisor.update_node(processed_node)
+             Logger.debug("System Mixer: Bound node #{uuid}")
+           end
         end
+        :ok
+
+      _error ->
+        Logger.warning("System Mixer: Node #{uuid} not active or missing. Skipping.")
+        {:error, :not_active}
     end
   end
 end

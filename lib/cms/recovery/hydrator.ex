@@ -128,6 +128,7 @@ defmodule CMS.Recovery.Hydrator do
     data_ledger = %DataTail{
       physical_symlink: ledger_map["physical_symlink"],
       integrity_hash: ledger_map["integrity_hash"],
+      last_linked_hash: ledger_map["last_linked_hash"],
       mime_definition: ledger_map["mime_definition"],
       last_mutation: parse_datetime(ledger_map["last_mutation"]),
       salience_score: ledger_map["salience_score"] || 0.5,
@@ -174,6 +175,7 @@ defmodule CMS.Recovery.Hydrator do
       body: node_body,
       tail: node_tail,
       antenna: node_antenna,
+      provenance: node_map["provenance"] || %{},
       created_at: parse_datetime(node_map["created_at"]),
       last_fired: parse_datetime(node_map["last_fired"])
     }

@@ -5,19 +5,18 @@ defmodule CMS.Services.GenesisCrawler do
   """
   require Logger
 
-  @summary_model "qwen3:0.6b"
-
   @doc """
   Runs a full Genesis on the target path.
   """
   def run(path, options \\ []) do
     path = Path.expand(path)
+    Application.put_env(:acn_cms, :project_root, path)
     cognitive_mode = Keyword.get(options, :cognitive_mode, :generative)
     Logger.info("GENESIS: Initiating Cold Boot for #{path} (Mode: #{cognitive_mode})")
 
     with :ok <- check_connectivity(cognitive_mode),
-         :ok <- __MODULE__.Phase1.run(path, options),
-         :ok <- __MODULE__.Phase2.run() do
+         {:ok, drift_detected} <- __MODULE__.Phase1.run(path, options),
+         :ok <- maybe_run_phase2(drift_detected, options) do
       Logger.info("GENESIS: Cold Boot COMPLETE. Full cognitive graph established.")
       {:ok, path}
     else
@@ -27,19 +26,35 @@ defmodule CMS.Services.GenesisCrawler do
     end
   end
 
+  defp maybe_run_phase2(drift_detected, options) do
+    force = Keyword.get(options, :force_binding, false)
+    
+    cond do
+      force -> 
+        Logger.info("GENESIS: Phase 2 FORCE enabled.")
+        __MODULE__.Phase2.run()
+      drift_detected -> 
+        Logger.info("GENESIS: Drift detected during Phase 1. Initiating Phase 2 Binding.")
+        __MODULE__.Phase2.run()
+      true ->
+        Logger.info("GENESIS: No drift detected and binding is silent. Skipping Phase 2.")
+        :ok
+    end
+  end
+
   defp check_connectivity(:deterministic) do
-    Logger.info("GENESIS: Deterministic Mode enabled. Bypassing Ollama connectivity check.")
+    Logger.info("GENESIS: Deterministic Mode enabled. Bypassing Gemini connectivity check.")
     :ok
   end
 
   defp check_connectivity(_) do
-    Logger.info("GENESIS: Checking Ollama Connectivity...")
-    case CMS.Infrastructure.OllamaBridge.summarize("system check", @summary_model, nil) do
+    Logger.info("GENESIS: Checking Gemini Connectivity...")
+    case CMS.Infrastructure.GeminiBridge.summarize("system check", "gemini-2.5-flash-lite", nil) do
       {:ok, _} -> 
-        Logger.info("GENESIS: Ollama Bridge ONLINE.")
+        Logger.info("GENESIS: Gemini Bridge ONLINE.")
         :ok
       {:error, reason} ->
-        {:error, {:ollama_unreachable, reason}}
+        {:error, {:gemini_unreachable, reason}}
     end
   end
 
@@ -64,9 +79,9 @@ defmodule CMS.Services.GenesisCrawler do
 
       # Wait for completion (sync barrier)
       receive do
-        {:wavefront_complete, ^pid} -> 
-          Logger.info("GENESIS: Phase 1 COMPLETE.")
-          :ok
+        {:wavefront_complete, ^pid, drift_detected} -> 
+          Logger.info("GENESIS: Phase 1 COMPLETE. (Drift: #{drift_detected})")
+          {:ok, drift_detected}
       after
         # 15 minute timeout for large crawls
         900_000 -> 

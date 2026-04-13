@@ -42,7 +42,9 @@ defmodule CMS.Recovery.Rehydrator do
     
     # Initialize batch state
     initial_acc = %{
+      events: 0,
       nodes: 0, 
+      unique_ids: MapSet.new(),
       vectors: 0, 
       errors: 0, 
       pending_vectors: %{},   # %{model => [{node_id, tensor}]}
@@ -56,7 +58,7 @@ defmodule CMS.Recovery.Rehydrator do
     # Flush remaining vectors
     flush_vectors(final_stats.pending_vectors)
     
-    Logger.info("REHYDRATOR: Reconstruction Complete. Stats: Nodes=#{final_stats.nodes}, Vectors=#{final_stats.vectors}, Errors=#{final_stats.errors}")
+    Logger.info("REHYDRATOR: Reconstruction Complete. Stats: Events=#{final_stats.events}, Unique Nodes=#{final_stats.nodes}, Vectors=#{final_stats.vectors}, Errors=#{final_stats.errors}")
     
     # 4. Commit to Disk
     VectorRouter.persist()
@@ -110,11 +112,13 @@ defmodule CMS.Recovery.Rehydrator do
      id = node_map["id"]
      head = node_map["head"]
      
-     new_nodes_count = acc.nodes + 1
+     new_events_count = acc.events + 1
+     new_unique_ids = MapSet.put(acc.unique_ids, id)
+     new_nodes_count = MapSet.size(new_unique_ids)
      
-     # Progress Log
-     if rem(new_nodes_count, 500) == 0 do
-       Logger.info("REHYDRATOR: Processed #{new_nodes_count} nodes...")
+     # Progress Log (Every 500 lines/events)
+     if rem(new_events_count, 500) == 0 do
+       Logger.info("REHYDRATOR: Processed #{new_events_count} events (Unique Nodes: #{new_nodes_count})...")
      end
 
      # Reconstruct the full Node struct to ensure we have all fields
@@ -132,7 +136,7 @@ defmodule CMS.Recovery.Rehydrator do
        
        :mnesia.dirty_write({:nodes_table, node.id, path_hash, parent_uuid, node.head, node.body, node.tail, node.body.data_ledger.chrono_stack, node.provenance, node.antenna})
 
-       acc = %{acc | nodes: new_nodes_count}
+       acc = %{acc | nodes: new_nodes_count, events: new_events_count, unique_ids: new_unique_ids}
 
        if head do
          embedding_list = head["embedding"]

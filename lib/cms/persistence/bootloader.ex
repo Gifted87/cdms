@@ -52,19 +52,11 @@ defmodule CMS.Persistence.Bootloader do
     mnesia_dir = Application.get_env(:mnesia, :dir) || "priv/data/mnesia_store"
     schema_file = Path.join(mnesia_dir, "schema.DAT")
     
-    if File.exists?(schema_file) do
-       # Paranoid check: Can we open this schema as a DETS file?
-       # Mnesia schema is internally a DETS file. If this returns :badarg or :error, 
-       # Mnesia will crash upon start.
-       case :dets.open_file(:boot_probe, [{:file, String.to_charlist(schema_file)}, {:repair, false}, {:access, :read}]) do
-         {:ok, _} -> 
-            :dets.close(:boot_probe)
-            false
-         _ -> true
-       end
-    else
-      false
-    end
+    # If the schema file exists, we assume it's structurally valid to attempt a boot.
+    # The previous paranoid DETS probe was susceptible to false positives (locks,
+    # transient I/O delays), which triggered unnecessary and destructive rehydrations.
+    # Mnesia's engine is better at self-recovering from minor inconsistencies.
+    not File.exists?(schema_file)
   end
 
   defp data_exists? do

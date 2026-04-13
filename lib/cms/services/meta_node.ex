@@ -15,7 +15,13 @@ defmodule CMS.MetaNode do
     data_tail = CMS.DataTail.new("system://meta/conflict", "hash-placeholder", "application/x-cms-meta", 1.0)
     body = CMS.NodeBody.new(data_head, [payload], data_tail)
 
-    {:ok, embedding} = CMS.Tool.Embedder.generate(head_text, "all-MiniLM-L6-v2")
+    embedding = case CMS.Tool.Embedder.generate(head_text, "all-MiniLM-L6-v2") do
+      {:ok, tensor} -> tensor
+      {:error, reason} -> 
+        require Logger
+        Logger.warning("MetaNode: Embedder failed (#{inspect(reason)}), falling back to zero-tensor")
+        Nx.tensor(List.duplicate(0.1, 384))
+    end
     
     # Correctly derive UUID via content-addressability
     provenance = %{source: "CMS.IngestionEngine", method: "dialectical_merge"}

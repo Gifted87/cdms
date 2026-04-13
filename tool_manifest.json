@@ -1,0 +1,38 @@
+{
+  "tools": [
+    {
+      "name": "cdms_query",
+      "description": "Run a semantic or nominal search across the knowledge graph.",
+      "usage": "./cdms_tool.sh query \"<query_text>\" [mode]",
+      "parameters": {
+        "query_text": "The search string (natural language)",
+        "mode": "Optional. One of: auto, semantic, nominal. Default is auto."
+      }
+    },
+    {
+      "name": "cdms_node",
+      "description": "Retrieve the full anatomy, summary, concepts, and relationships for a specific node ID.",
+      "usage": "./cdms_tool.sh node <id>",
+      "parameters": {
+        "id": "The UUID of the node to retrieve."
+      }
+    },
+    {
+      "name": "cdms_history",
+      "description": "Retrieve the historical state of a node at a specific ISO-8601 timestamp.",
+      "usage": "./cdms_tool.sh history <id> <timestamp>",
+      "parameters": {
+        "id": "The UUID of the node.",
+        "timestamp": "ISO-8601 format (e.g., 2024-04-03T12:00:00Z)"
+      }
+    },
+    {
+      "name": "cdms_mutations",
+      "description": "Monitor recent mutations to identify what changed in the project recently.",
+      "usage": "./cdms_tool.sh mutations <since>",
+      "parameters": {
+        "since": "Time range string (e.g., 60m, 2h, 1d)."
+      }
+    }
+  ]
+}

@@ -85,7 +85,11 @@ defmodule CMS.Web.Router do
   # --- COGNITIVE ARTIFACT BUILDER ---
   # Returns a structured "Cognitive Artifact" with identity, anatomy, history, and relationships
   
-  defp build_cognitive_artifact(score, node, _opts \\ []) when is_map(node) do
+  @doc """
+  Public builder for standard Cognitive Artifacts.
+  Used by both Web and Console interfaces for consistency.
+  """
+  def build_cognitive_artifact(score, node, opts \\ []) when is_map(node) do
     # Detect node type: CREMS (process) vs CDMS (file)
     is_crems = is_crems_node?(node)
     
@@ -312,12 +316,27 @@ defmodule CMS.Web.Router do
         "unknown"
     end
     
-    # Get content if node is in deep mode (has stored content)
-    content = if mode == :deep do
-      case node do
+    # Get cognition info (Summary & Concepts)
+    {summary, concepts} = case node do
+      %{body: %{data_head: %{summary: s, concepts: c}}} -> {s, c}
+      %{"body" => %{"data_head" => %{"summary" => s, "concepts" => c}}} -> {s, c}
+      _ -> {"No summary available", []}
+    end
+
+    # Get content if mode is deep (has stored content)
+    # We truncate this to 3000 chars as per user request
+    content = if mode == :deep or mode == :mode_a_deep do
+      raw_content = case node do
         %CMS.Node{body: body} -> CMS.NodeBody.decompress(body)
         %{body: %{data_body: db}} -> db
+        %{"body" => %{"data_body" => db}} -> db
         _ -> nil
+      end
+      
+      if is_binary(raw_content) do
+        String.slice(raw_content, 0, 3000)
+      else
+        raw_content
       end
     else
       nil
@@ -407,6 +426,10 @@ defmodule CMS.Web.Router do
         mutation_cause: mutation_cause,
         chrono_stack_depth: stack_depth
       },
+      cognition: %{
+        summary: summary,
+        concepts: concepts
+      },
       relationships: relationships
     }
     
@@ -428,13 +451,19 @@ defmodule CMS.Web.Router do
     all_edges = hierarchical ++ syntactic ++ semantic
     
     Enum.map(all_edges, fn edge ->
+      target_id = Map.get(edge, :target_node_id) || Map.get(edge, "target_node_id")
+      
+      # Try to provide a hint/name for the target if we can find it
+      target_name = CMS.VectorRouter.get_name_for_uuid(target_id) || "unknown"
+
       %{
         type: Map.get(edge, :type) || Map.get(edge, "type"),
-        target: Map.get(edge, :target_node_id) || Map.get(edge, "target_node_id"),
+        target_id: target_id,
+        target_name: target_name,
         weight: Map.get(edge, :weight) || Map.get(edge, "weight") || 1.0
       }
     end)
-    |> Enum.take(20)  # Limit to top 20 relationships for response size
+    |> Enum.take(30)  # Moderate limit for response complexity
   end
   
   defp format_timestamp(nil), do: "unknown"
@@ -873,7 +902,9 @@ defmodule CMS.Web.Router do
     id = conn.path_params["id"]
     case fetch_active_or_historical_node(id) do
       nil -> send_json(conn, 404, %{error: "Node not found in active memory or history"})
-      node -> send_json(conn, 200, node)
+      node -> 
+        artifact = build_cognitive_artifact(1.0, node)
+        send_json(conn, 200, artifact)
     end
   end
 
@@ -907,7 +938,9 @@ defmodule CMS.Web.Router do
     case DateTime.from_iso8601(params["as_of"] || "") do
       {:ok, dt, _} ->
         case TemporalQueryEngine.get_node_state_at_time(id, dt) do
-          {:ok, node} -> send_json(conn, 200, node)
+          {:ok, node} -> 
+            artifact = build_cognitive_artifact(1.0, node)
+            send_json(conn, 200, artifact)
           {:error, _} -> send_json(conn, 404, %{error: "No history found"})
         end
       _ ->

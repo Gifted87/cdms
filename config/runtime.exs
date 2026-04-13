@@ -8,6 +8,20 @@ import Config
 # ------------------------------------------------------------------------------
 
 # 1. Capture & Resolve Data Directory (The Context Slot)
+# Parse .env file if it exists, injecting into System.env
+if File.exists?(".env") do
+  File.read!(".env")
+  |> String.split("\n", trim: true)
+  |> Enum.each(fn line ->
+    if not String.starts_with?(line, "#") and String.contains?(line, "=") do
+      [key, val] = String.split(line, "=", parts: 2)
+      # Remove surrounding quotes from the value if present
+      val = String.trim(val) |> String.replace(~r/^["']|["']$/, "")
+      System.put_env(String.trim(key), val)
+    end
+  end)
+end
+
 # Defaults to ./memory_cartridges/default if not specified
 raw_data_dir = System.get_env("ACMS_DATA_DIR") || "memory_cartridges/default"
 data_dir = Path.expand(raw_data_dir)
@@ -43,4 +57,6 @@ config :acn_cms,
   data_root: data_dir,
   node_name: node_name,
   web_port: port,
-  secret_key: secret_key
+  secret_key: secret_key,
+  llm_provider: System.get_env("LLM_PROVIDER") || "gemini",
+  gemini_api_key: System.get_env("GEMINI_API_KEY")

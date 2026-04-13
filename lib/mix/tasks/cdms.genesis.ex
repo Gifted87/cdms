@@ -13,7 +13,7 @@ defmodule Mix.Tasks.Cdms.Genesis do
     path = Path.expand(path_raw || ".")
     cognitive_mode = case opts[:mode] do
       "deterministic" -> :deterministic
-      _ -> :generative
+      _ -> :mode_a_deep
     end
 
     if path == "." and args == [] do

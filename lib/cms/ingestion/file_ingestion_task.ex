@@ -5,12 +5,11 @@ defmodule CMS.Ingestion.FileIngestionTask do
 
   require Logger
   alias CMS.{Node, NodeHead, NodeBody, NodeTail, NodeAntenna, DataHead, DataTail, Edge}
-  alias CMS.Infrastructure.OllamaBridge
+  alias CMS.Infrastructure.GeminiBridge
   alias CMS.Tool.Embedder # Using the Python Bridge tool
   alias CMS.Ingestion.ExclusionCortex
 
   # Model Constants
-  @summary_model "qwen3:0.6b"
   @embedding_model "all-MiniLM-L6-v2" # Defined in ml_bridge.py
 
   @doc """
@@ -19,38 +18,73 @@ defmodule CMS.Ingestion.FileIngestionTask do
   def ingest(path, parent_id, spatial_coords \\ {0.0, 0.0, 0}, width_descriptor \\ "m0", opts \\ []) do
     uuid = UUID.uuid5(:oid, path)
 
+    # Step 0: Extract & Check JSON Registry BEFORE any action
+    {current_content, current_hash} = read_and_hash(path)
+    
+    if CMS.Ingestion.NodeRegistry.is_unchanged?(path, current_hash) do
+      Logger.info("FileIngestionTask: Found in JSON registry and unchanged, skipping: #{path}")
+      
+      # Node exists and looks valid. Ensure actor is running.
+      case CMS.NodeSupervisor.start_node_from_store(uuid) do
+        {:ok, pid} -> CMS.SymbolicIndex.register_path(path, pid)
+        _ -> :ok
+      end
+      {:ok, :skipped, uuid}
+    else
+      case handle_mnesia_ingest(uuid, path, parent_id, spatial_coords, width_descriptor, opts, current_content, current_hash) do
+        {:ok, _id} ->
+          # Atomic Registration: Only mark as successful in JSON registry if it didn't crash/fail
+          CMS.Ingestion.NodeRegistry.register_node(path, current_hash, uuid)
+          # Map to :touched to inform the GenesisCrawler that Phase 2 is required
+          {:ok, :touched, uuid}
+        error -> 
+          error
+      end
+    end
+  end
+
+  defp handle_mnesia_ingest(uuid, path, parent_id, spatial_coords, width_descriptor, opts, content, hash) do
     # Idempotency Check: See if node already exists in Mnesia
     case :mnesia.dirty_read(:nodes_table, uuid) do
       [{:nodes_table, ^uuid, _hash, _parent, _head, %{data_head: %{summary: "Processing failed" <> _}}, _tail, _stack, _provenance, _antenna}] ->
         # Existing node found but it was a failure. Re-ingest.
         Logger.info("FileIngestionTask: Re-ingesting previously failed node: #{path}")
-        do_ingest(uuid, path, parent_id, spatial_coords, width_descriptor, opts)
+        do_ingest(uuid, path, parent_id, spatial_coords, width_descriptor, opts, content, hash)
 
-      [{:nodes_table, ^uuid, _hash, _parent, _head, _body, _tail, _stack, _provenance, _antenna}] ->
-        # Node exists and looks valid. Ensure actor is running.
-        case CMS.NodeSupervisor.start_node_from_store(uuid) do
-          {:ok, _pid} -> :ok
-          _ -> :ok
+      [{:nodes_table, ^uuid, _hash, _parent, _head, body, _tail, _stack, _provenance, _antenna}] ->
+        stored_hash = case body do
+          %{data_ledger: %{integrity_hash: h}} -> h
+          _ -> nil
         end
-        {:ok, uuid}
+        
+        if hash != stored_hash do
+          Logger.info("FileIngestionTask: Drift detected for #{path}. Remodeling...")
+          # Delete old node from mnesia before re-ingesting to avoid conflicts
+          :mnesia.dirty_delete(:nodes_table, uuid)
+          do_ingest(uuid, path, parent_id, spatial_coords, width_descriptor, opts, content, hash)
+        else
+          case CMS.NodeSupervisor.start_node_from_store(uuid) do
+            {:ok, pid} -> CMS.SymbolicIndex.register_path(path, pid)
+            _ -> :ok
+          end
+          {:ok, uuid}
+        end
 
       [] ->
-        do_ingest(uuid, path, parent_id, spatial_coords, width_descriptor, opts)
+        do_ingest(uuid, path, parent_id, spatial_coords, width_descriptor, opts, content, hash)
     end
   end
 
-  defp do_ingest(_uuid, path, parent_id, spatial_coords, width_descriptor, opts) do
+  defp do_ingest(_uuid, path, parent_id, spatial_coords, width_descriptor, opts, content, hash) do
         Logger.info("Cognitive Ingestion Task: Starting for #{path}")
         edge_generation = Keyword.get(opts, :edge_generation, true)
 
         # Step 1: Physical Assessment & Decision Gate
         case ExclusionCortex.assess_file(path) do
           {:ok, assessed_mode, _reason} ->
-            # Prioritize cognitive_mode from opts over physical assessment
-            # This allows deterministic mode to override LLM assessment
             mode = Keyword.get(opts, :cognitive_mode, assessed_mode)
             provenance = Keyword.get(opts, :provenance, %{"source" => "local_ingestion"})
-            process_file(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, provenance)
+            process_file(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, provenance, content, hash)
 
           {:error, reason} ->
             Logger.error("Failed to assess file #{path}: #{inspect(reason)}")
@@ -58,50 +92,61 @@ defmodule CMS.Ingestion.FileIngestionTask do
         end
     end
 
-  defp process_file(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, provenance) do
-    # Step 2: Content Extraction & Hashing
-    {content, hash} = read_and_hash(path)
+  defp process_file(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, provenance, content, hash) do
     mime = detect_mime(path)
 
-    # Step 3: The Cognitive Request (Ollama - Inference)
-    cognition_result = 
-      cond do
-        mode == :deterministic ->
-          # Use Deterministic Aggregator (Dimension 1-5)
-          summary = CMS.Ingestion.DeterministicAggregator.aggregate(path, content, mime)
-          # In deterministic mode, we can extract keywords as concepts
-          concepts = summary 
-                     |> String.split("[KEYWORDS]: ") 
-                     |> List.last() 
-                     |> String.split("\n") 
-                     |> List.first() 
-                     |> String.split(", ")
-          {:ok, {summary, concepts}}
-
-        mode == :mode_a_deep ->
-          # Use Qwen via Ollama for summarization
-          case OllamaBridge.summarize(content, @summary_model, path) do
-            {:ok, %{"summary" => s, "concepts" => c}} ->
-              case ExclusionCortex.validate_cognition(s) do
-                :ok -> {:ok, {s, c}}
-                {:error, gate_reason} -> 
-                  Logger.error("Ingestion ABORTED for #{path}: Semantic Gate failure (#{gate_reason})")
-                  {:error, :semantic_gate_failure}
-              end
-            {:error, ollama_reason} -> 
-              Logger.error("Ingestion ABORTED for #{path}: Ollama error (#{inspect(ollama_reason)})")
-              {:error, :ollama_failure}
-          end
-
-        true ->
-          {:ok, {"Shallow representation of binary or large file.", []}}
-      end
-
-    case cognition_result do
+    # Step 3: The Cognitive Request (Gemini - Inference)
+    case run_cognitive_step(path, content, mime, mode) do
       {:ok, {summary, concepts}} ->
         continue_ingestion(path, parent_id, mode, spatial_coords, width_descriptor, edge_generation, content, hash, mime, summary, concepts, provenance)
+      
+      {:error, :llm_failure} when mode != :deterministic ->
+        Logger.warning("Ingestion FALLBACK for #{path}: LLM resource exhausted after retries. Using deterministic mode.")
+        
+        # Re-run with deterministic fallback
+        new_mode = :deterministic
+        new_provenance = Map.put(provenance, "fallback", true)
+        {:ok, {summary, concepts}} = run_cognitive_step(path, content, mime, new_mode)
+        
+        continue_ingestion(path, parent_id, new_mode, spatial_coords, width_descriptor, edge_generation, content, hash, mime, summary, concepts, new_provenance)
+
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp run_cognitive_step(path, content, mime, mode) do
+    cond do
+      mode == :deterministic ->
+        # Use Deterministic Aggregator (Dimension 1-5)
+        summary = CMS.Ingestion.DeterministicAggregator.aggregate(path, content, mime)
+        # In deterministic mode, we can extract keywords as concepts
+        concepts = summary 
+                   |> String.split("[KEYWORDS]: ") 
+                   |> List.last() 
+                   |> String.split("\n") 
+                   |> List.first() 
+                   |> String.split(", ")
+        {:ok, {summary, concepts}}
+
+      mode == :mode_a_deep ->
+        summary_result = GeminiBridge.summarize(content, "gemini-2.5-flash-lite", path)
+        
+        case summary_result do
+          {:ok, %{"summary" => s, "concepts" => c}} ->
+            case ExclusionCortex.validate_cognition(s) do
+              :ok -> {:ok, {s, c}}
+              {:error, gate_reason} -> 
+                Logger.error("Ingestion ABORTED for #{path}: Semantic Gate failure (#{gate_reason})")
+                {:error, :semantic_gate_failure}
+            end
+          {:error, llm_reason} -> 
+            Logger.error("Ingestion ABORTED for #{path}: LLM error (#{inspect(llm_reason)})")
+            {:error, :llm_failure}
+        end
+
+      true ->
+        {:ok, {"Shallow representation of binary or large file.", []}}
     end
   end
 
@@ -117,7 +162,7 @@ defmodule CMS.Ingestion.FileIngestionTask do
     
 
     # Step 4: Vectorization (Python ML Bridge)
-    # Replaces OllamaBridge.embed with CMS.Tool.Embedder.generate
+    # Uses CMS.Tool.Embedder.generate
     vector_input = """
     FILE: #{Path.basename(path)}
     SUMMARY: #{summary}
@@ -219,11 +264,8 @@ defmodule CMS.Ingestion.FileIngestionTask do
       {:ok, pid} -> 
         CMS.SymbolicIndex.register_path(path, pid)
         
-        # Defer scatter-gather to avoid cascade timeouts during genesis
-        # The semantic edge generation will happen after enough nodes exist
-        if edge_generation do
-          Process.send_after(pid, :delayed_scatter_gather, 10_000)
-        end
+        # Phase 2 (Binding) now handles global connectivity in a synchronized pass.
+        # Removing delayed tasks to prevent "reforging" noise and race conditions.
         
         CMS.Services.LiveWire.watch(path)
         

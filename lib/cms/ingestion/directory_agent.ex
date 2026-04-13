@@ -37,123 +37,165 @@ defmodule CMS.Ingestion.DirectoryAgent do
 
   @impl true
   def handle_info(:genesis_sequence, state) do
-    # 1. Instantiate SELF as a Node (Representation of the Directory)
-    case ensure_directory_node(state.path, state.parent_id, state.spatial_coords, state.width_descriptor, state.opts) do
-      nil ->
-        Logger.error("DirectoryAgent: Failed to ensure directory node for #{state.path}. Wavefront halted.")
-        {:noreply, state}
+    if ExclusionCortex.should_traverse?(state.path) do
+      # 1. Instantiate SELF as a Node (Representation of the Directory)
+      case ensure_directory_node(state.path, state.parent_id, state.spatial_coords, state.width_descriptor, state.opts) do
+        nil ->
+          Logger.error("DirectoryAgent: Failed to ensure directory node for #{state.path}. Wavefront halted.")
+          {:noreply, state}
+  
+        {my_uuid, my_status} ->
+          # Track if any child or self was touched
+          state = Map.put(state, :drift_detected, if(my_status == :touched, do: true, else: false))
+          # 2. SCAN
+          case File.ls(state.path) do
+          {:ok, items} ->
+            # 3. COMPUTE MEMBERSHIP HASH (Selective Sync)
+            current_membership_hash = compute_membership_hash(state.path, items)
+            
+            # Retrieve old hash from Mnesia
+            stored_membership_hash = 
+              case :mnesia.dirty_read(:nodes_table, my_uuid) do
+                [{:nodes_table, _, _, _, _, _, _, _, provenance, _}] -> Map.get(provenance || %{}, "membership_hash")
+                _ -> nil
+              end
 
-      my_uuid ->
-        # 2. SCAN
-    case File.ls(state.path) do
-      {:ok, items} ->
-        # 3. FILTER
-        filtered_items = 
-          items 
-          |> Enum.map(fn item -> Path.join(state.path, item) end)
-          |> Enum.filter(&ExclusionCortex.should_traverse?/1)
+            # 4. FILTER
+            filtered_items = 
+              items 
+              |> Enum.map(fn item -> Path.join(state.path, item) end)
+              |> Enum.filter(&ExclusionCortex.should_traverse?/1)
 
-        {_files, _dirs} = classify_items(filtered_items)
-        
-        # 4. SPAWN (Mitosis) -> Parallel
-        {_x, _y, z} = state.spatial_coords
-        
-        # Sibling Indexing (X/Y-Axis Breadth) & Width Descriptors
-        # We use a simple circular distribution or spiral for X/Y
-        items_with_meta = Enum.with_index(filtered_items) |> Enum.map(fn {item_path, idx} ->
-          # Polar distribution
-          r = :math.sqrt(idx + 1)
-          theta = 2.4 * idx
-          child_coords = {r * :math.cos(theta), r * :math.sin(theta), z + 1}
-          
-          # Width Descriptor: [Parent][ChildChar][Layer0]
-          # We use 65 + idx to get 'A', 'B', etc.
-          child_char = <<65 + rem(idx, 26)>>
-          # Remove the '0' from parent width if it exists for cleaner nesting (m0 -> mc0)
-          parent_base = String.replace(state.width_descriptor, ~r/\d+$/, "")
-          child_width = "#{parent_base}#{child_char}0"
-          
-          {item_path, child_coords, child_width}
-        end)
+            if current_membership_hash == stored_membership_hash and Application.get_env(:acn_cms, :incremental_genesis, true) do
+              Logger.info("DirectoryAgent: No membership drift for #{state.path}. Hydrating existing subtree.")
+              
+              # Fast-path: Just ensure all known child actors are started
+              child_uuids = 
+                case :mnesia.dirty_read(:nodes_table, my_uuid) do
+                  [{:nodes_table, _, _, _, _, _, tail, _, _, _}] -> 
+                    Enum.filter(tail.hierarchical, &(&1.type == :parent_of)) |> Enum.map(& &1.target_node_id)
+                  _ -> []
+                end
 
-        # 4. EXECUTE (Serialized Ingestion)
-        # Processing items one at a time to prevent system overload.
-        
-        children_results = 
-          items_with_meta
-          |> Task.async_stream(fn {item_path, coords, width} ->
-            if File.dir?(item_path) do
-               # RECURSION FIX:
-               # 1. Strip :notify_pid so children don't signal the Mix task prematurely.
-               child_opts = Keyword.delete(state.opts, :notify_pid)
-               
-               {:ok, pid} = CMS.NodeSupervisor.start_directory_agent(item_path, my_uuid, coords, width, child_opts)
-               
-               # 2. Synchronous Wait: Block until child finishes its scan.
-               # This ensures the Root Agent finishes last.
-               try do
-                 GenServer.call(pid, :await_genesis, :infinity)
-               catch
-                 _, _ -> :ok # Handle crashes gracefully
-               end
+              # Use async_stream to start child actors without recursive scanning
+              child_uuids |> Enum.each(&CMS.NodeSupervisor.start_node_from_store/1)
+              
+              # Signal completion with status
+              if notify_pid = state.opts[:notify_pid] do
+                 send(notify_pid, {:wavefront_complete, self(), state.drift_detected})
+              end
 
-               UUID.uuid5(:oid, item_path)
+              {:noreply, %{state | my_uuid: my_uuid, children_uuids: child_uuids}}
             else
-               # Single File Ingestion
-               case FileIngestionTask.ingest(item_path, my_uuid, coords, width, state.opts) do
-                 {:ok, id} -> id
-                 {:ok, _, id} -> id # Handle conflict resolution case
-                 _ -> nil
-               end
+              # 5. SPAWN (Mitosis) -> Parallel
+              {_x, _y, z} = state.spatial_coords
+              
+              items_with_meta = Enum.with_index(filtered_items) |> Enum.map(fn {item_path, idx} ->
+                r = :math.sqrt(idx + 1)
+                theta = 2.4 * idx
+                child_coords = {r * :math.cos(theta), r * :math.sin(theta), z + 1}
+                child_char = <<65 + rem(idx, 26)>>
+                parent_base = String.replace(state.width_descriptor, ~r/\d+$/, "")
+                child_width = "#{parent_base}#{child_char}0"
+                {item_path, child_coords, child_width}
+              end)
+
+              {children_uuids, children_drift} = 
+                items_with_meta
+                |> Task.async_stream(fn {item_path, coords, width} ->
+                  if File.dir?(item_path) do
+                     child_opts = Keyword.delete(state.opts, :notify_pid)
+                     {:ok, pid} = CMS.NodeSupervisor.start_directory_agent(item_path, my_uuid, coords, width, child_opts)
+                     try do
+                       GenServer.call(pid, :await_genesis, :infinity)
+                     catch
+                       _, _ -> {:error, :timeout}
+                     end
+                  else
+                     FileIngestionTask.ingest(item_path, my_uuid, coords, width, state.opts)
+                  end
+                end, max_concurrency: 5, timeout: :infinity)
+                |> Enum.reduce({[], state.drift_detected}, fn 
+                  {:ok, {:ok, :touched, id}}, {uuids, _} -> {[id | uuids], true}
+                  {:ok, {:ok, :skipped, id}}, {uuids, drift} -> {[id | uuids], drift}
+                  {:ok, {:ok, status, id}}, {uuids, _} when status in [:touched, :skipped] -> {[id | uuids], status == :touched}
+                  {:ok, id}, {uuids, drift} when is_binary(id) -> {[id | uuids], drift} # Fallback for legacy calls
+                  _, acc -> acc
+                end)
+
+              update_edges(my_uuid, children_uuids)
+              
+              # Store newest membership hash
+              update_membership_hash(my_uuid, current_membership_hash)
+
+              CMS.Services.LiveWire.watch(state.path)
+              Logger.info("DirectoryAgent: Wavefront complete for #{state.path}. Monitoring.")
+              
+              if notify_pid = state.opts[:notify_pid] do
+                 send(notify_pid, {:wavefront_complete, self(), children_drift})
+              end
+
+              {:noreply, %{state | my_uuid: my_uuid, children_uuids: children_uuids, drift_detected: children_drift}}
             end
-          end, max_concurrency: 5, timeout: :infinity)
-          |> Enum.flat_map(fn {:ok, result} -> [result]; _ -> [] end)
-          |> Enum.filter(& &1)
 
-        all_children = children_results
-
-        # Update my Tail with PARENT_OF edges
-        update_edges(my_uuid, all_children)
-
-        # 6. SENTINEL
-        # "Transitions to inotify monitoring mode" -> LiveWire
-        CMS.Services.LiveWire.watch(state.path)
-
-        Logger.info("DirectoryAgent: Wavefront complete for #{state.path}. Monitoring.")
-        
-        # Signal completion if requested
-        if notify_pid = state.opts[:notify_pid] do
-           send(notify_pid, {:wavefront_complete, self()})
+          {:error, reason} ->
+            Logger.error("DirectoryAgent: Failed to scan #{state.path}: #{inspect(reason)}")
+            {:stop, reason, state}
         end
-
-        {:noreply, %{state | my_uuid: my_uuid, children_uuids: all_children}}
-
-      {:error, reason} ->
-        Logger.error("DirectoryAgent: Failed to scan #{state.path}: #{inspect(reason)}")
-        {:stop, reason, state}
+      end
+    else
+      Logger.debug("DirectoryAgent: Skipping genesis for blocked path #{state.path}")
+      {:stop, :normal, state}
     end
-  end
   end
 
   def handle_info(_msg, state) do
     {:noreply, state}
   end
 
+  defp compute_membership_hash(path, items) do
+    items
+    |> Enum.sort()
+    |> Enum.map(fn item ->
+      full_path = Path.join(path, item)
+      case File.stat(full_path) do
+        {:ok, %File.Stat{mtime: mtime, size: size}} -> "#{item}:#{inspect(mtime)}:#{size}"
+        _ -> item
+      end
+    end)
+    |> Enum.join("|")
+    |> then(& :crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
+  defp update_membership_hash(uuid, hash) do
+    case CMS.NodeSupervisor.get_node(uuid) do
+      {:ok, node} ->
+        # Write through the actor so it is the source of truth.
+        # The actor will then persist to Mnesia correctly.
+        new_provenance = Map.put(node.provenance || %{}, "membership_hash", hash)
+        updated_node = %{node | provenance: new_provenance}
+        CMS.NodeSupervisor.update_node(updated_node)
+      _ ->
+        # Actor not up yet – write directly to Mnesia as a safe fallback
+        case :mnesia.dirty_read(:nodes_table, uuid) do
+          [record] ->
+            provenance = elem(record, 8) || %{}
+            new_provenance = Map.put(provenance, "membership_hash", hash)
+            new_record = put_elem(record, 8, new_provenance)
+            :mnesia.dirty_write(new_record)
+          _ -> :ok
+        end
+    end
+  end
+
+
   @impl true
   def handle_call(:await_genesis, _from, state) do
     # This message is processed after :genesis_sequence, so we know we are done.
-    {:reply, :ok, state}
+    {:reply, {:ok, if(Map.get(state, :drift_detected, false), do: :touched, else: :skipped), state.my_uuid}, state}
   end
   
-  defp classify_items(paths) do
-    Enum.reduce(paths, {[], []}, fn path, {files, dirs} ->
-      if File.dir?(path) do
-        {files, [path | dirs]}
-      else
-        {[path | files], dirs}
-      end
-    end)
-  end
 
   defp ensure_directory_node(path, parent_id, spatial_coords, width_descriptor, opts) do
     uuid = UUID.uuid5(:oid, path)
@@ -175,7 +217,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
           {:ok, pid} -> CMS.SymbolicIndex.register_path(path, pid)
           _ -> :ok
         end
-        uuid
+        {uuid, :skipped}
 
       [] ->
         # Propagate cognitive mode to directory summary generation
@@ -230,7 +272,14 @@ defmodule CMS.Ingestion.DirectoryAgent do
         CMS.VectorRouter.add_embedding(uuid, embedding, @embedding_model)
 
         # Persist - 9 fields: uuid, path_hash, parent_uuid, head_data, body_data, tail_data, chrono_stack, provenance, antenna_data
-        :mnesia.dirty_write({:nodes_table, uuid, UUID.uuid5(:oid, path), parent_id, node.head, node.body, node.tail, CMS.ChronoStack.new(), %{}, node.antenna})
+        # Preserve any existing provenance (e.g. membership_hash written by a previous run)
+        # so the incremental fast-path is not defeated on restart.
+        existing_provenance =
+          case :mnesia.dirty_read(:nodes_table, uuid) do
+            [{:nodes_table, _, _, _, _, _, _, _, prov, _}] when is_map(prov) -> prov
+            _ -> %{}
+          end
+        :mnesia.dirty_write({:nodes_table, uuid, UUID.uuid5(:oid, path), parent_id, node.head, node.body, node.tail, CMS.ChronoStack.new(), existing_provenance, node.antenna})
     
         # Append to epoch log for rehydration capability
         CMS.LogAppender.append_node_event(uuid, :node_created, node)
@@ -243,7 +292,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
           _ -> :ok
         end
         
-        uuid
+        {uuid, :touched}
 
       {:error, _reason} ->
         nil
@@ -303,17 +352,18 @@ defmodule CMS.Ingestion.DirectoryAgent do
       concepts = [dir_name, "Directory"]
       {:ok, {summary, concepts}}
     else
-      # Call Ollama for summarization
-      case CMS.Infrastructure.OllamaBridge.summarize(prompt, "qwen3:0.6b", path) do
+      summary_result = CMS.Infrastructure.GeminiBridge.summarize(prompt, "gemini-2.5-flash-lite", path)
+
+      case summary_result do
         {:ok, %{"summary" => s, "concepts" => c}} when is_binary(s) and is_list(c) ->
           {:ok, {s, c}}
         {:ok, %{"summary" => s}} when is_binary(s) ->
           {:ok, {s, [dir_name, "Directory"]}}
         {:error, reason} ->
-          Logger.error("DirectoryAgent: Ollama summarization failed for #{path}: #{inspect(reason)}")
+          Logger.error("DirectoryAgent: LLM summarization failed for #{path}: #{inspect(reason)}")
           {:error, reason}
         other ->
-          Logger.error("DirectoryAgent: Unexpected Ollama response for #{path}: #{inspect(other)}")
+          Logger.error("DirectoryAgent: Unexpected LLM response for #{path}: #{inspect(other)}")
           {:error, :unexpected_response}
       end
     end
@@ -322,7 +372,13 @@ defmodule CMS.Ingestion.DirectoryAgent do
   defp update_edges(my_uuid, children_uuids) do
     case :mnesia.dirty_read(:nodes_table, my_uuid) do
       [{_table, _uuid, _hash, _pid, head, body, tail, stack, provenance, antenna}] ->
-        new_tail = Enum.reduce(children_uuids, tail, fn child_id, acc ->
+        # Strip all existing :parent_of edges before rebuilding to prevent
+        # duplicate accumulation across multiple Genesis runs on the same directory.
+        clean_hierarchical =
+          Enum.reject(tail.hierarchical, fn e -> e.type == :parent_of end)
+        clean_tail = %{tail | hierarchical: clean_hierarchical}
+
+        new_tail = Enum.reduce(children_uuids, clean_tail, fn child_id, acc ->
           CMS.NodeTail.add_edge(acc, CMS.Edge.new(child_id, :parent_of, 1.0))
         end)
         
