@@ -1,11 +1,8 @@
-# Distributed Semantic Modelling & Runtime Observation Ecosystem
-
-**Developed by Gift Braimah for the Autonomous Intelligence Community.**
-*Licensed under the MIT License. (c) 2026 CDMS & CREMS.*
+# Cognitive Modelling System for Autonomous Agents
 
 ## 1. System Engineering Philosophy & Architecture of the Cognitive Substrate
 
-The Cognitive Digital Modelling System (CDMS) and the Cognitive Runtime Environment Modelling System (CREMS) represent a unified architectural framework for the creation of high-fidelity, autonomous digital environments. The core engineering objective is the transmutation of static project resources and dynamic runtime processes into a **Distributed Cognitive Substrate**. This substrate is not a traditional centralized index; it is an ensemble of autonomous actors that evaluate, fire, and evolve independently, providing a navigable "connectome" for AI agents.
+The Cognitive Digital Modelling System (CDMS) and the Cognitive Runtime Environment Modelling System (CREMS) represent a unified system for the creation of high-fidelity, autonomous digital environments. The core engineering objective is the transmutation of static software ecosystems and dynamic runtime processes into a **Queriable Cognitive Model**. This model is not a traditional centralized index; it is an ensemble of autonomous actors that evaluate, fire, and evolve independently, providing a navigable "connectome" for AI agents.
 
 ### 1.1 The Axiom of Autonomy
 In this architecture, every discrete digital entity—whether a source-code file, a persistent data asset, or an active operating system process—is instantiated as a self-contained, identifiable actor within a high-concurrency network. These actors operate according to a decentralized paradigm where global system understanding emerges from local interactions rather than a centralized query engine. Each actor is responsible for its own state management, semantic evaluation, and metabolic regulation.
@@ -314,3 +311,5 @@ Participation in the evolution of the CDMS/CREMS ecosystem requires adherence to
 By combining decentralized actor-model dynamics, high-resolution telemetry transmutation, and Merkle-linked temporal persistence, the CDMS/CREMS ecosystem provides a unified digital nervous system. It transfigures a fragmented software environment into a meaningful, navigable, and predictable **Cognitive Substrate**. This framework empowers autonomous AI agents with the proprioception and foresight necessary to manage the extreme complexity of modern distributed systems.
 
 ---
+
+*Proprietary Infrastructure for **The Genesis Machine**. Developed by Gift Braimah.*
