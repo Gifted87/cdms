@@ -1,315 +1,138 @@
-# Cognitive Modelling System for Autonomous Agents
+# CDMS / CREMS — The Cognitive Digital Modelling System
 
-## 1. System Engineering Philosophy & Architecture of the Cognitive Substrate
+A human being can navigate a massive, complex city not because he has memorised the exact coordinates of every brick, but because he understands it spatially. When he needs to find a specific building, he does not read a list of every structure in existence. He understands districts, streets, and topologies. He moves from the macro down to the micro. The human mind does not process an environment as a flat directory of data; it processes it as a spatial, interconnected topology.
 
-The Cognitive Digital Modelling System (CDMS) and the Cognitive Runtime Environment Modelling System (CREMS) represent a unified system for the creation of high-fidelity, autonomous digital environments. The core engineering objective is the transmutation of static software ecosystems and dynamic runtime processes into a **Queriable Cognitive Model**. This model is not a traditional centralized index; it is an ensemble of autonomous actors that evaluate, fire, and evolve independently, providing a navigable "connectome" for AI agents.
+So how should AI agents understand software?
 
-### 1.1 The Axiom of Autonomy
-In this architecture, every discrete digital entity—whether a source-code file, a persistent data asset, or an active operating system process—is instantiated as a self-contained, identifiable actor within a high-concurrency network. These actors operate according to a decentralized paradigm where global system understanding emerges from local interactions rather than a centralized query engine. Each actor is responsible for its own state management, semantic evaluation, and metabolic regulation.
+If it worked like human spatial awareness, an agent looking at a codebase would see a geography — a living structure of data flows, static code, and dynamic runtime execution. But currently, agents do neither. They parse code as flat text. When they receive a massive codebase, they read it linearly. If they need to understand how a runtime memory leak affects a static frontend module, they rely on vector search or regular expressions. The agent does not understand the software because, to the agent, the software has no shape.
 
-### 1.2 The Unified Model of Digital Identity
-Digital identity within the substrate is determined by a content-addressable logic. By deriving entity identifiers from the cryptographic hash of their structural "truth" and provenance metadata, the system ensures that identical knowledge assets map to the same address. This provides a "Fixed Identity" for the digital atoms, allowing the system to maintain a stable topology even as behavioral relationships and synaptic weights evolve over time. This separation between the "Fact" (Truth) and the "Relationship" (Synapse) is fundamental to the system's neuroplasticity and its ability to reconcile overlapping knowledge sources.
+This is the problem CDMS and CREMS were built to solve.
 
----
+## What CDMS/CREMS Is
 
-## 2. The Autonomous Actor Schema: The Quad-Partite Entity
+CDMS (the Cognitive Digital Modelling System) and CREMS (the Cognitive Runtime Environment Modelling System) turn a software environment — its files and its running processes alike — into a **connectome**: a living, self-organizing network of autonomous actors, rather than a static index sitting behind a search box. Four ideas make it work:
 
-Every actor within the substrate adheres to a rigorous quad-partite internal schema designed to maximize both symbolic utility and semantic query-ability across the distributed network.
+**Every file and every process is its own actor, not a row in a table.** Each one carries a semantic identity (what it means), a body (its actual content and history), a set of typed connections to other actors, and a signal strength that determines how loudly it "speaks" during a search. There is no central index deciding what's relevant — each actor decides that for itself.
 
-### 2.1 The Control Layer (Semantic Identity)
-The control layer houses the high-dimensional vector embeddings that represent the entity's functional intent and conceptual identity. These embeddings are generated through a "Cognitive Bridge" that summarizes the entity's purpose in natural language before vectorization. By storing these embeddings locally within each actor, the system enables decentralized evaluation. When a query context is broadcast across the network, the actor itself performs the cosine similarity calculation to determine if its semantic identity is a relevant match for the request.
+**Spreading Activation Discovery.** A query isn't matched against a database — it's broadcast to the whole network. Every actor independently checks whether the query resonates with its own identity, and if it clears its threshold, it fires: reporting itself and pulsing its neighbors, who evaluate the same question in turn. A trace of already-visited actors prevents the signal from looping forever. The result is a search that follows the actual shape of the system's connections, not just word or vector similarity.
 
-### 2.2 The Body (Persistent Content & History)
-The body of the actor contains the raw data or "Truth" of the entity. Depending on the ingestion strategy, this may be a deep representation (raw content) or a shallow reference (metadata only). Crucially, the body contains the **Chrono-Stack**—an immutable ledger of the entity's evolution. Every state mutation is captured as a reverse-diff snapshot, allowing the system to perform high-resolution "Temporal Forensics" by reconstructing the state of any entity as it existed at a specific point in the system's history.
+**Hebbian Plasticity.** Actors that keep firing together in the same queries get their connection strengthened over time. The network's wiring reflects how it's actually been used, not just how it was originally structured.
 
-### 2.3 The Connectivity Matrix (The Synaptic Tail)
-Relationships are represented by typed and weighted edges stored in the connectivity matrix. This matrix defines the entity's position within the three primary system networks:
-- **The Structural Network**: Hierarchical parenting and membership relationships (e.g., directory structures or process trees).
-- **The Functional Network**: Cross-entity dependencies, imports, and communication channels (e.g., process-to-socket links).
-- **The Semantic Network**: Associative links discovered through Hebbian priming and scatter-gather protocols.
+**Physiological Self-Regulation.** Raw telemetry — CPU load, error rates, memory pressure — is continuously converted into a small set of normalized "feelings": agility, stress, strain, satisfaction. When enough of the network is under strain, a global inhibition signal rises and raises the firing threshold everywhere, which keeps the system from thrashing under its own activity — the software equivalent of a nervous system dialing down sensitivity when it's overwhelmed.
 
-### 2.4 The Signal Modulation Layer (The Antenna)
-The antenna modulates the strength of the signals emitted by the actor during propagation cycles. It determines the "Gain" of the node, which is dynamically adjusted based on the entity's intrinsic salience, its historical activity frequency, and its current "Physiological State." This layer ensures that critical configuration or high-traffic logic receives greater signal amplification than transient or secondary assets.
+On top of this, a **Chrono-Stack** keeps a reverse-diff history for every actor, so any node's state can be reconstructed as it existed at any earlier moment, and a **Phantom Engine** can push a hypothetical "force" through the network to predict where a change would strain or break something before it actually happens.
 
----
+## Why It Was Built
 
-## 3. Spreading Activation Dynamics & Cognitive Self-Regulation
+The problem is sharpest when an AI agent has to reason about a large, live system it didn't build from scratch.
 
-Interaction with the digital connectome is driven by **Spreading Activation Signals**. This mechanism facilitates associative discovery by propagating pulses of energy through the typed edges of the connectivity matrix.
+Say an agent is asked to figure out why a production service just started leaking memory. The actual answer might run: a running process → the specific module it loaded → a configuration file that was edited weeks ago → a one-line commit message explaining why. None of those four things are semantically similar to each other. A vector search for "memory leak" will not surface a config diff from three weeks ago written in someone else's shorthand. Passing the agent the entire codebase and the entire process tree isn't an option either — that blows past any realistic context window the moment the environment has any real size.
 
-### 3.1 Autonomous Firing & Threshold Logic
-The system's search capabilities are decentralized. When a query is initiated, the system broadcasts a "Context Descriptor" to all actors. Each actor autonomously performs an evaluation:
-1. **Relevance Calculation**: The actor computes the cosine similarity between the query vector and its internal semantic identity.
-2. **Threshold Modulation**: The firing threshold ($T_{adj}$) is dynamically calculated. This threshold is influenced by the global system inhibition signal and the node's individual internal state.
-3. **The Firing Event**: If the calculated relevance exceeds the threshold, the actor "fires." It reports its ID and state to a search coordinator and emits a pulse to all its neighbors in the connectivity matrix.
+CDMS/CREMS solves this by building the connection into the substrate itself, ahead of time. CDMS maps the static side — the filesystem, the source tree, the data assets — through a wavefront crawl that classifies and wires files as it expands outward. CREMS mirrors the dynamic side — the live process tree, spawning actors for running processes and wiring them by parentage and communication channel, so the model stays a live reflection of what's actually running, not a stale snapshot. An agent that asks about one point in this network can spread outward through it and land on everything structurally or causally entangled with it — the config file, the commit, the process — without ever having been told in advance that those things were related.
 
-### 3.2 Synaptic Propagation & Trace-Based Loop Prevention
-When an actor fires, it initiates a propagation sequence. Pulses travel along edges, with their strength modulated by the edge weight and the source actor's gain. To prevent infinite loops in the highly interconnected graph, the system utilizes a **Trace-Based Guard**. Every pulse carries a "Trace" of all actors it has already visited. If an actor receives a pulse and finds its own ID in the trace, it inhibits the signal, ensuring that cognitive activity naturally terminates once its associative path is exhausted.
+## Was It Successful?
 
-### 3.3 Hebbian Optimization & Synaptic Plasticity
-The connectivity of the substrate is plastic and evolves based on usage patterns through **Regional Hebbian Reinforcement**. When two actors are frequently co-activated in a single query session, the system assumes a functional relationship and strengthens the link by increasing the edge weight.
+CDMS/CREMS is the cognitive substrate behind **The Genesis Machine**, the project it was built to serve — the layer that gives its agents a navigable, self-updating model of both the code they're working in and the environment that code runs in. The actor-model design, the semantic partitioning of the vector space into regions, and the sharded Hebbian buffering all exist because a single, centralized index could not keep pace with a live system that is being written to and read from continuously, by many agents, at once.
 
----
+## Where It's Not the Right Fit
 
-## 4. Telemetry-to-Physics Transmutation: The Logic of Feeling
+This is not a tool to reach for by default.
 
-The observation layer of the system transmutes raw telemetry into **Standardized Physiological Feelings**. This provides a common "Physics" for interpreting the health and performance of diverse digital entities.
+Small, simple codebases that comfortably fit in one context window don't need a connectome — the overhead of standing up an actor per file outweighs anything spreading activation would add. Anything that depends on the OS-level process introspection in CREMS is Linux-only by design; it has nothing to model on other platforms. Hard real-time or high-frequency control loops are a poor fit too — propagating a signal through a graph and buffering Hebbian updates both take time that a tight, low-latency path can't spare. Anywhere strict, deterministic, order-preserving retrieval matters — a financial ledger, an ETL pipeline — the associative "fuzziness" that makes spreading activation powerful becomes a liability instead. And a one-off, short-lived environment doesn't get much out of it either: the static Genesis crawl and the Hebbian learning curve are investments that pay off over many repeated queries, not a single ad hoc lookup.
 
-### 4.1 The Transmutation Formulas
-The system uses an "Alchemist" logic to convert raw metrics (e.g., CPU load, memory usage, I/O wait, message queue length) into normalized indicators:
-- **Agility (Responsiveness)**: Derived from the ratio of operational throughput to the resource cost incurred. High agility represents efficient, non-blocked operation.
-- **Stress (The Struggle)**: Calculated using a sigmoid-squashed combination of immediate load and error rates. $Stress = Sigmoid((Load * 0.5) + (ErrorRate * 2.0))$.
-- **Strain (Cumulative Load)**: Calculated based on memory saturation and I/O wait factors. It represents the degree to which a node is pushed toward its capacity limits.
-- **Satisfaction (Operational Success)**: A ratio of successful operations to total events.
+CDMS/CREMS is built for the opposite case: large, long-lived, actively-changing environments where an agent needs to feel its way to the things it didn't know to ask about.
 
-### 4.2 Homeostasis & Global Inhibition
-To prevent "Cognitive Overload," the system maintains a **Global Inhibition Factor**. This factor is derived from real-time monitoring of message queue congestion and system-wide load. As the inhibition signal increases, the firing threshold across all actors rises proportionally, dampening the spread of activation and ensuring system stability.
+## How to Use
 
----
+### 1. Prerequisites
 
-## 5. The Predictive Manifold: High-Resolution Force Simulations
+The system runs on the BEAM, so it needs:
 
-The **Phantom Engine** provides the system with predictive foresight by simulating hypothetical scenarios within a "Shadow Substrate" (The Phantom Manifold).
+- Erlang/OTP 26.0+
+- Elixir 1.15+
+- A Gemini 2.5 Flash Lite API key (the semantic bridge that generates embeddings)
+- A Linux host (required for CREMS's native process introspection)
+- Mnesia, which ships with standard OTP
 
-### 5.1 Force Vector Propagation
-Simulation is initiated by applying a **Force Vector** representing a theoretical pressure. The engine propagates this force through the model's links, calculating the predicted outcome for each affected node based on its unique biology-neutral physics parameters.
+### 2. Installation and Setup
 
-### 5.2 Elasticity and Saturation Modeling
-- **Elasticity Coefficient**: Every node possesses an elasticity factor derived from its historical behavior. Brittle nodes are more likely to fail under pressure, while elastic nodes absorb it. The coefficient follows the formula: $Elasticity = 1.0 / (1.0 - (StrainDelta * Stress))$.
-- **Saturation Prediction**: The engine predicts the "Saturation Point" where operational physics will fail, identifying cascading failure points across the distributed architecture.
-
----
-
-## 6. Distributed State Persistence & Temporal Forensics
-
-The framework implements a robust, immutable persistence architecture that treats history as a fundamental asset.
-
-### 6.1 Epoch-Based Journaling & The Chronicle
-Every material change to the connectome is appended to a sequential **Epoch Log**. This append-only design ensures that the system's "Chronicle" is never overwritten. Periodically, logs are rotated into a distributed registry, providing high-throughput writes for real-time updates and efficient random-access for rehydration.
-
-### 6.2 Reverse-Diff State Reconstruction
-The **Temporal Query Engine** enables time-travel within the model. By replaying reverse-diffs from the Chrono-Stack starting from the most recent full snapshot, the system can reconstruct the entire state of any node or sub-graph at any microsecond in history.
-
----
-
-## 7. Autonomous Swarm Dynamics: Environmental Discovery
-
-The construction and maintenance of the connectome are handled by **Autonomous Exploration Swarms**.
-
-### 7.1 The Static Wavefront (Project Discovery)
-During "Genesis," a static exploration swarm maps the filesystem using a **Wavefront Algorithm**. It expands recursively, spawning specialized agents to classify assets, generate semantic summaries, and instantiate actors. A "Membership Hash" mechanism enables incremental updates, reducing re-ingestion overhead.
-
-### 7.2 The Dynamic Runtime Swarm (Environment Reflection)
-The dynamic modeller traverses the operating system's process tree and the virtual machine's process space. It identifies active PIDs and BEAM processes, transmuting them into nodes and wiring them based on parent-child relationships and communication channels, creating a live reflection of the running environment.
-
----
-
-## 8. Ingestion Intelligence & The Exclusion Protocols
-
-To maintain a focused connectome, the system employs several layers of filtering and classification intelligence.
-
-### 8.1 The Triage Protocol
-Assets undergo a multi-layer triage:
-1. **The Primary Glance**: A heuristic check of file extensions.
-2. **The Deep Scan (DNA Check)**: Analysis of "Magic Bytes" and binary signatures.
-3. **Functional Promotion**: Analysis of system-level metadata (e.g., execution bits) to identify "Tools."
-
-### 8.2 The Exclusion Cortex & Cognitive Swamp PREVENTION
-The **Exclusion Cortex** prevents "Cognitive Swamp" by employing path-aware filtering to drop build artifacts and noise. It also performs a "Semantic Gate" check on generated summaries, ensuring the connectome contains only coherent, high-confidence semantic data.
-
----
-
-## 9. Forensic Autopsy & The Ghost Lifecycle
-
-Process termination is treated as a transition in the node lifecycle.
-
-### 9.1 The Necrosis Signal
-Upon termination, the system receives a **Necrosis Signal**, activating the **Autopsy Protocol**. This captures the final physiological state, exit code, and a forensic buffer of the last several telemetry ticks, archiving the data in the node's history before decommissioning the active actor.
-
-### 9.2 Scavenging & Ghost Archival
-Terminated entities transition into a "Ghost State"—an archival representation. A periodic **Ghost Scavenger** scans for ghosts whose retention period has passed, performs a final log archival, and removes them from the active registry.
-
----
-
-## 10. Advanced Scalability: Semantic Partitioning & Regional Indexing
-
-To operate across massive distributed environments without performance degradation, the framework implements a decentralized **Semantic Partitioning** strategy.
-
-### 10.1 Regional Region-Hash Indexing
-The entire 384-dimensional vector space is partitioned into **256 Semantic Regions**. Each actor is assigned a `region_id` based on its high-dimensional embedding hash. This partitioning allows the network to perform "Targeted Broadcasts," where query signals are routed only to the regions most likely to contain relevant nodes. This reduces network congestion and ensures that query evaluation latency remains sub-linear relative to the growth of the actor population.
-
-### 10.2 Lock-Free Drift Management
-The system maintains a high-frequency, read-optimized index (The Drift Index) that stores actor embeddings in a lock-free structure. This allows actors to perform "Synaptic Search" for new neighbors without causing circular GenServer deadlocks. A background process (The Drift Manager) periodically verifies that actors are still oriented correctly within their semantic regions, performing "Node Migration" if an actor's semantic identity evolves significantly enough to warrant moving to a different region of the space.
-
----
-
-## 11. Concurrency & High-Frequency Persistence Strategies
-
-The framework is optimized for the high-concurrency environment of the BEAM virtual machine, utilizing advanced message-passing and storage strategies.
-
-### 11.1 Sharded Hebbian Buffering
-Synaptic weight updates (Hebbian reinforcement) are high-frequency events that could easily cause process bottlenecking. To mitigate this, the system utilizes a **Sharded Buffering** strategy. Updates are routed to regional buffers that aggregate modifications before performing batch writes to the persistence layer. This reduces disk I/O contention and prevents local actor processes from being blocked by synchronization tasks.
-
-### 11.2 Broadway-Backed Telemetry Pipelines
-Telemetry ingestion for the CREMS is handled through a high-performance pipeline backed by the Broadway framework. This allows the system to process thousands of "Grip Reality" events per second from the sentinels. The pipeline features built-in backpressure and message shedding, ensuring that the system's "Sensory Buffer" never causes an OOM (Out Of Memory) event during periods of extreme system-wide turbulence.
-
----
-
-## 12. System Integrity & Security Boundaries
-
-The ecosystem enforces strict operational boundaries to protect the integrity of the data directory and prevent split-brain scenarios.
-
-### 12.1 The Instance Guard (Git-Lock Mechanism)
-To prevent multiple instances of the modelling system from writing to the same persistence root simultaneously, an **Instance Guard** is implemented. It utilizes an OS-level PID-lock file (the "running.pid"). Before a bootloader sequence can proceed, it must acquire this lock. If a stale lock is found from a dead process, the guard performs a "Self-Healing Retrieval" to clean the environment and ensure a safe boot.
-
-### 12.2 Identity Verification
-The system utilizes a cryptographic "Identity Lock" to verify that the rehydrated Mnesia schema matches the current machine architecture. If a mismatch is detected (e.g., trying to boot data from an incompatible node), the system triggers an "Emergency Rehydration" from the immutable epoch logs, resurrecting the connectome from the source of truth rather than risk corrupted state.
-
----
-
-## 13. Operational Overview & Deployment Protocols
-
-While the underlying architecture serves as a high-fidelity cognitive substrate, the operational interface provides the necessary handles for deployment and interaction.
-
-### 13.1 Core System Capabilities
-- **Decentralized Actor-Model Networking**: Infinite horizontal scalability via isolated actor processes.
-- **High-Resolution Telemetry Transmutation**: Real-time conversion of system metrics into normalized physical indicators.
-- **Spreading Activation Discovery**: Native associative search via decentralized firing dynamics.
-- **Phantom Engine Predictive Simulation**: Force-vector based "What-If" analysis for distributed systems.
-- **Merkle-Linked Temporal Persistence**: Append-only journaling with reverse-diff state reconstruction.
-- **Autonomous Swarm Dynamics**: Recursive wavefront discovery of static and dynamic environments.
-
-### 13.2 Environmental Prerequisites
-The ecosystem is optimized for high-concurrency environments and requires the following substrate:
-- **Erlang/OTP 26.0+**: Essential for the decentralized actor model.
-- **Elixir 1.15+**: The core development language.
-- **Gemini 2.5 Flash Lite API Access**: Necessary for the high-dimensional semantic bridge.
-- **Linux Operating System**: Required for native process introspection and telemetry sentinels.
-- **Mnesia Persistence Strategy**: Included in the standard OTP distribution.
-
-### 13.3 The Universal API Interface
-The ecosystem exposes a high-performance REST and WebSocket API through a centralized interface layer, allowing external agents and services to interact with the cognitive substrate.
-
-#### 13.3.1 Knowledge Ingestion API
-- **POST `/api/v1/ingest/blob`**: Ingest raw data payloads directly into the substrate.
-- **POST `/api/v1/ingest/upload`**: Multipart upload support for large-scale asset ingestion.
-- **POST `/api/v1/ingest`**: Standard entry point for structured entity injection.
-
-#### 13.3.2 Decentralized Query & Search
-- **POST `/api/v1/query/unified`**: The primary search gate utilizing the Three-Gate Triage logic (Symbolic, Nominal, Semantic). Returns ranked results based on spreading activation.
-- **POST `/api/v1/query`**: Direct interface for semantic vector search across the partitioned regional indices.
-
-#### 13.3.3 Node & Temporal Management
-- **GET `/api/v1/nodes/:id`**: Retreive the full quad-partite state of a specific actor.
-- **GET `/api/v1/nodes/:id/history`**: Access the temporal reverse-diff stack for an entity.
-- **GET `/api/v1/nodes/:id/edges`**: Inspect the functional and semantic connectivity of a node.
-- **POST `/api/v1/nodes/:id/feedback`**: Provide anti-Hebbian penalization to refine the link topology.
-
-#### 13.3.4 Real-time Signal Stream (WebSocket)
-- **WS `/api/v1/events`**: A dedicated pub/sub gateway for real-time firing signals, mutation events, and physiological state updates. This allows external dashboards to visualize the subsystem's "Pulse" as it occurs.
-
-### 13.4 Substrate Genesis & Environmental Binding
-The framework supports two distinct Genesis protocols to establish the initial cognitive substrate.
-
-#### 13.4.1 Static Genesis (CDMS Mapping)
-To map a static filesystem environment, execute the hierarchical crawl sequence:
-```bash
-mix cdms.genesis --path /path/to/target --mode deep
 ```
-This initializes the wavefront expansion agents and performs the initial phase ofconnectome forgery.
-
-#### 13.4.2 Runtime Genesis (CREMS Modelling)
-To initialize the dynamic reflection of the operating system and virtual machine, the **Runtime Swarm** must be triggered. This instantiates the "Mother Node" and spawns recursive modelling agents to map the process tree:
-```elixir
-# Trigger via the cognitive console or API
-CREMS.Ingestion.RuntimeSwarm.start_genesis()
+git clone https://github.com/Gifted87/cdms.git
+cd cdms
+mix deps.get && mix compile
 ```
 
-### 13.5 Automation & Startup Ecosystem
-The project includes several automation scripts to streamline deployment and environment preparation.
+Configure your environment — the simplest path is a `.env` file, loaded automatically at boot:
 
-#### 13.5.1 The CDMS Global CLI (`cdms.sh`)
-A comprehensive bash-based launcher that simplifies the boot sequence. It automatically resolves the project root, manages environment variables via `.env` injection, and enforces data directory isolation within a hidden `.cdms_model` folder.
-```bash
+```
+cp .env.example .env
+# then set GEMINI_API_KEY=your-key-here inside .env
+```
+
+Then boot the node:
+
+```
 ./cdms.sh --port 4000 --mode generative --name production_node
 ```
 
-#### 13.5.2 Tooling & Diagnostics
-- `install.sh`: Automated dependency verification and environment setup.
-- `cdms_tool.sh`: A utility script for common maintenance tasks and substrate health checks.
-- `test_api.sh`: A validation suite for verifying the availability and responsiveness of the Universal API layer.
+Other useful variables you can set in `.env` or export directly: `LLM_PROVIDER` (`gemini` or `ollama`), `ACMS_DATA_DIR` for where the model is persisted, `ACTIVATION_THRESHOLD` to tune how easily actors fire (defaults to `0.35`), and `HEBBIAN_REINFORCEMENT_GAIN` to tune how quickly connections strengthen with use.
 
-### 13.6 Environmental Configuration & Setup
+### 3. Building the Connectome (Genesis)
 
-To secure and configure the cognitive substrate, you must establish the operational environment before boot. The system utilizes dynamic runtime resolution to ensure that no secrets are hardcoded in the source.
+To map a static codebase or filesystem:
 
-#### 13.6.1 Method 1: The .env File (Recommended)
-The system automatically detects and loads a `.env` file in the project root if it exists. 
-1. Copy the provided template: `cp .env.example .env`
-2. Populate the `GEMINI_API_KEY` with your valid Google AI Platform credential.
-3. The system will inject these variables into the BEAM environment at startup.
-
-#### 13.6.2 Method 2: Direct Shell Export
-For containerized or temporary deployments, you can export variables directly:
-```bash
-export GEMINI_API_KEY="AIzaSy..."
-export LLM_PROVIDER="gemini"
-./cdms.sh
+```
+mix cdms.genesis --path /path/to/target --mode deep
 ```
 
-#### 13.6.3 Key Variable Registry
-- `GEMINI_API_KEY`: **Required**. Authentication for the high-dimensional vector bridge (Gemini 2.5 Flash Lite).
-- `LLM_PROVIDER`: Defines the semantic engine backend (`gemini` or `ollama`). Defaults to `gemini`.
-- `ACMS_PORT`: The listener port for the Universal API and WebSocket gateway. Defaults to `4000`.
-- `ACMS_DATA_DIR`: The filesystem path where the Mnesia registry and vector indices are stored. Defaults to `memory_cartridges/default`.
-- `ACMS_SECRET`: A 32-byte base64 string used for session security. If missing, a unique key is auto-generated per boot.
-- `ACTIVATION_THRESHOLD`: The baseline resistance (0.0 to 1.0) for spreading activation firing. Defaults to `0.35`.
-- `HEBBIAN_REINFORCEMENT_GAIN`: The strength multiplier for usage-based synaptic weight updates.
-- `PHANTOM_RELIANCE_COEFFICIENT`: Internal physics multiplier for predictive simulations.
-- `MAX_REGIONAL_CONCURRENCY`: Controls the number of concurrent task streams allowed during regional drift management.
+To start the dynamic runtime swarm and begin modelling the live process tree:
 
-
-### 13.5 Basic Operation & Querying
-The primary interface for interacting with the substrate is the decentralized query coordinator. You can initiate a query broadcast via the console:
-
-```elixir
-# Initiate a decentralized semantic broadcast
-CMS.Interface.Console.query("Identify the primary functional dependencies in the physics engine.")
+```
+# via the console or API
+CREMS.Ingestion.RuntimeSwarm.start_genesis()
 ```
 
-### 13.6 Structural Organization
-The ecosystem is organized into three distinct operational layers, ensuring clear separation of concerns:
-- **The Infrastructure Layer**: Handles high-performance persistence (Mnesia, Epoch Logs), high-speed communication (PubSub, Broadcast), and semantic bridge interfaces (Gemini).
-- **The Core Cognitive Layer**: Contains the foundational logic for the distributed substrate, including the actor schemas, the physics transmutation engines, and the connectivity forgery protocols.
-- **The Services & Interface Layer**: Provides the high-level orchestration for environment discovery, query routing, and real-time monitoring of the model's integrity.
+### 4. Talking to It via the API
 
-### 13.7 Security & Isolation Policies
-To ensure the stability of the digital substrate, the system enforces several security boundaries:
-- **Cryptographic Identity Validation**: All nodes are addressed using content hashes to prevent document-spoofing or identity collisions in the distributed network.
-- **Environment Isolation**: The `Instance Guard` precludes the secondary boot of overlapping substrate instances, preventing catastrophic corruption of the underlying Mnesia registry.
-- **Sanitized Semantic Ingestion**: The `Exclusion Cortex` prevents the ingestion of sensitive artifacts (e.g., `.env`, `.ssh`, `.git`) by default, ensuring that the AI agent's proprioception is limited to functional code and system telemetry.
-- **Environment-Based Secret Management**: All API keys, tokens, and sensitive credentials are managed exclusively through environment variables. The system enforces a strict "No Hardcoded Secrets" policy, utilizing dynamic runtime resolution to fetch credentials only when needed.
+Ingesting a fact:
 
-### 13.8 Troubleshooting & Diagnostic Feedback
-If the cognitive substrate exhibits instability or performance drift, utilize the following diagnostic pathways:
-- **Substrate Fragmentation**: If query relevance scores decline significantly, run `mix cdms.compact` to re-align regional indices and purge stale synaptic traces.
-- **Connectivity Staleness**: If the connectome fails to reflect physical filesystem changes, verify that the `LiveWire` sentinel is active and has the appropriate operating system permissions to monitor the `PROJECT_ROOT`.
-- **Inhibition Overdrive**: If the system's firing gain appears overly dampened, inspect the global inhibition factor via the console. High inhibition is often a symptom of excessive systemic noise or resource exhaustion in the underlying VM.
+```
+curl -X POST http://localhost:4000/api/v1/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "The payment service reads its retry policy from config/retry.yml.",
+    "type": "text"
+  }'
+```
 
----
+Querying it — the unified endpoint runs a three-gate triage (symbolic, nominal, semantic) before spreading activation takes over:
 
-## 14. Contributing & Development Standards
-Participation in the evolution of the CDMS/CREMS ecosystem requires adherence to rigorous engineering standards:
-- **Semantic Commit Protocols**: All modifications must be committed with descriptive markers indicating if they affect the Infrastructure, Core, or Interface layers.
-- **Cognitive Integrity Testing**: New modules must be validated against the `FIDValidator` to ensure they do not introduce structural anomalies into the actor schema.
-- **Asynchronous Pattern Enforcement**: Contributions must utilize non-blocking GenServer patterns to preserve the sub-millisecond responsiveness of the spreading activation network.
+```
+curl -X POST http://localhost:4000/api/v1/query/unified \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Why would the payment service retry so aggressively?"
+  }'
+```
 
----
+Inspecting a single actor's full state, its history, or its connections:
 
-## 15. Conclusion: The Unified Digital Nervous System
+```
+GET /api/v1/nodes/:id
+GET /api/v1/nodes/:id/history
+GET /api/v1/nodes/:id/edges
+```
 
-By combining decentralized actor-model dynamics, high-resolution telemetry transmutation, and Merkle-linked temporal persistence, the CDMS/CREMS ecosystem provides a unified digital nervous system. It transfigures a fragmented software environment into a meaningful, navigable, and predictable **Cognitive Substrate**. This framework empowers autonomous AI agents with the proprioception and foresight necessary to manage the extreme complexity of modern distributed systems.
+And for a live view of the network's activity as it happens — firing events, mutations, physiological state changes — connect to the WebSocket stream at `ws://localhost:4000/api/v1/events`.
 
----
+### 5. Diagnostics
 
-*Proprietary Infrastructure for **The Genesis Machine**. Developed by Gift Braimah.*
+If query relevance starts to drift, `mix cdms.compact` re-aligns the regional indices and clears stale traces. If the connectome stops reflecting real filesystem changes, check that the LiveWire sentinel has permission to watch the project root. `test_api.sh` is included for a quick sanity check that the API layer is up and responding.
+
+## Documentation
+
+See the project's own architecture notes for the full breakdown of the actor schema, the physics behind the physiological metrics, and the persistence and partitioning strategy underneath all of this.
+
+## License
+
+Proprietary infrastructure for The Genesis Machine. Developed by Gift Braimah.
