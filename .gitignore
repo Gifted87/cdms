@@ -30,3 +30,4 @@ all_deleted.txt
 .vscode/
 *.swp
 *~
+n*.sonpriv/native/*.so
