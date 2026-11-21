@@ -38,24 +38,35 @@ defmodule CMS.Services.SystemMixer do
   def bind_node(uuid) do
     case NodeSupervisor.get_node(uuid) do
       {:ok, node} ->
-        # PRE-EMPTIVE OPTIMIZATION:
-        # If hash matches, we don't even need to call EdgeGenerator (silencing the log)
-        current_hash = node.body.data_ledger.integrity_hash
-        last_hash = node.body.data_ledger.last_linked_hash
-        
-        if current_hash != last_hash or last_hash == nil do
-           processed_node = CMS.Core.Logic.EdgeGenerator.generate_edges(node)
-           
-           if processed_node != node do
-             NodeSupervisor.update_node(processed_node)
-             Logger.debug("System Mixer: Bound node #{uuid}")
-           end
-        end
-        :ok
+        perform_bind(uuid, node)
 
       _error ->
-        Logger.warning("System Mixer: Node #{uuid} not active or missing. Skipping.")
-        {:error, :not_active}
+        # PRODUCTION GRADE: Attempt on-demand hydration if node is inactive
+        case NodeSupervisor.start_node_from_store(uuid) do
+          {:ok, _pid} ->
+            case NodeSupervisor.get_node(uuid) do
+              {:ok, node} -> perform_bind(uuid, node)
+              _ -> {:error, :hydration_failed}
+            end
+          _ ->
+            Logger.warning("System Mixer: Node #{uuid} could not be hydrated. Skipping.")
+            {:error, :missing}
+        end
     end
+  end
+
+  defp perform_bind(uuid, node) do
+    current_hash = node.body.data_ledger.integrity_hash
+    last_hash = node.body.data_ledger.last_linked_hash
+    
+    if current_hash != last_hash or last_hash == nil do
+       processed_node = CMS.Core.Logic.EdgeGenerator.generate_edges(node)
+       
+       if processed_node != node do
+         NodeSupervisor.update_node(processed_node)
+         Logger.debug("System Mixer: Bound node #{uuid}")
+       end
+    end
+    :ok
   end
 end

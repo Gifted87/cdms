@@ -47,7 +47,7 @@ defmodule CMS.NodeTail do
       t when t in [:relates_to, :semantic, :contradicts, :supersedes, :superseded_by] ->
         if exists?(tail.semantic, target, t), do: tail, else: %{tail | semantic: [edge | tail.semantic]}
 
-      t when t in [:links_dynamically_to, :symlinks_to, :mounts_on, :owned_by, :executable_by, :configures, :logs_to, :defines, :defined_by] ->
+      t when t in [:links_dynamically_to, :symlinks_to, :mounts_on, :owned_by, :executable_by, :configures, :logs_to, :defines, :defined_by, :calls, :anchored_to] ->
         if exists?(tail.functional, target, t), do: tail, else: %{tail | functional: [edge | tail.functional]}
 
       _ ->

@@ -14,7 +14,7 @@ defmodule CMS.Edge do
     :last_used_at    # DateTime: For DecayManager to calculate 'Active Forgetting'
   ]
 
-  @type link_type :: :semantic | :syntactic | :dependency | :contradicts | :causes | :similar_to | :defines | :defined_by
+  @type link_type :: :semantic | :syntactic | :dependency | :contradicts | :causes | :similar_to | :defines | :defined_by | :calls | :anchored_to
 
   @type t :: %__MODULE__{
     target_node_id: String.t(),

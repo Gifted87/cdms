@@ -59,4 +59,8 @@ config :acn_cms,
   web_port: port,
   secret_key: secret_key,
   llm_provider: System.get_env("LLM_PROVIDER") || "gemini",
-  gemini_api_key: System.get_env("GEMINI_API_KEY")
+  gemini_api_keys: System.get_env("GEMINI_API_KEYS") |> then(fn
+    nil -> []
+    str -> str |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+  end),
+  admin_token: System.get_env("CMS_ADMIN_TOKEN") || "admin_secret"

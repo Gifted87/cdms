@@ -12,6 +12,37 @@ defmodule CMS.Interface.Console do
   ## Usage:
       iex> CMS.Interface.Console.query("What is the purpose of the GeminiBridge?")
   """
+  @doc """
+  Fetches and prints details for ALL nodes currently in the system.
+  """
+  def list_all do
+    IO.puts("\n[ACMS Global Node Audit] -------------------------------------")
+    
+    uuids = :mnesia.dirty_all_keys(:nodes_table)
+    IO.puts("Total Nodes: #{length(uuids)}\n")
+
+    uuids
+    |> Enum.with_index(1)
+    |> Enum.each(fn {uuid, idx} ->
+      case :mnesia.dirty_read(:nodes_table, uuid) do
+        [{:nodes_table, ^uuid, _ph, _pid, _head, body, tail, _stack, _prov, _ant}] ->
+          # Construct a temporary node map for the printer
+          node = %{body: body, tail: tail}
+          print_node_details(node, idx, nil)
+        
+        [{:nodes_table, ^uuid, _ph, _pid, _head, body, tail, _stack, _prov}] ->
+          node = %{body: body, tail: tail}
+          print_node_details(node, idx, nil)
+
+        _ ->
+          IO.puts("#{idx}. [ERROR] Could not read node #{uuid}")
+      end
+    end)
+    
+    IO.puts("-----------------------------------------------------------\n")
+    :ok
+  end
+
   def query(query_string, opts \\ []) do
     IO.puts("\n[ACMS Query] -----------------------------------------------")
     IO.puts("Query: \"#{query_string}\"")
@@ -68,13 +99,19 @@ defmodule CMS.Interface.Console do
     
     if content do
       # Print first 500 characters of content with indentation
-      truncated_content = 
-        content 
-        |> String.slice(0, 500) 
-        |> String.replace("\n", "\n      ")
+      formatted_content = 
+        if is_binary(content) do
+          content 
+          |> String.slice(0, 500) 
+          |> String.replace("\n", "\n      ")
+        else
+          inspect(content, pretty: true)
+          |> String.slice(0, 500)
+          |> String.replace("\n", "\n      ")
+        end
         
       IO.puts("   Content Preview:")
-      IO.puts("      #{truncated_content}...")
+      IO.puts("      #{formatted_content}...")
     else
       IO.puts("   Content:  [Shallow/Binary]")
     end

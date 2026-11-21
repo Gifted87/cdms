@@ -12,7 +12,7 @@ defmodule CMS.Infrastructure.GeminiBridge do
   @embedding_limit 20
 
   defp api_key do
-    Application.get_env(:acn_cms, :gemini_api_key) || raise "GEMINI_API_KEY not configured"
+    CMS.Infrastructure.KeyRotation.get_next_key() || raise "GEMINI_API_KEY not configured"
   end
 
   defstruct [:inference_tokens, :embedding_tokens, :inference_queue, :embedding_queue]

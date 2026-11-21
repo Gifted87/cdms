@@ -96,14 +96,26 @@ defmodule CMS.Services.GenesisCrawler do
 
     def run do
       Logger.info("GENESIS: Phase 2 (Binding) starting...")
-      
-      # Establish semantic and connectome links
+
       try do
-        CMS.Services.SystemMixer.bind_all()
+        # Pass A: Semantic Binding
+        # Seeds DriftIndex from full Mnesia state (all nodes, not just live actors),
+        # then runs a global Scatter-Gather to forge bidirectional :semantic and
+        # :contradicts edges. This is the backbone of Spreading Activation.
+        Logger.info("GENESIS: Phase 2A — Semantic Binding (Scatter-Gather)...")
+        {:ok, sem_stats} = CMS.Ingestion.SemanticBinder.run_pass()
+        Logger.info("GENESIS: Phase 2A COMPLETE. #{inspect(sem_stats)}")
+
+        # Pass B: Topological Binding
+        # Resolves cross-file call-graph ghost nodes into concrete :calls/:imports edges.
+        Logger.info("GENESIS: Phase 2B — Topological Binding (Call Graph)...")
+        CMS.Ingestion.CallGraphBinder.run_pass()
+        Logger.info("GENESIS: Phase 2B COMPLETE.")
+
         Logger.info("GENESIS: Phase 2 COMPLETE.")
         :ok
       rescue
-        e -> 
+        e ->
           Logger.error("GENESIS: Phase 2 CRASHED - #{inspect(e)}")
           {:error, {:binding_failure, e}}
       end

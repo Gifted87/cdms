@@ -11,6 +11,7 @@ defmodule CMS.Core.Logic.EdgeGenerator do
   """
   def generate_edges(node, opts \\ []) do
     force = Keyword.get(opts, :force, false)
+    skip_semantic = Keyword.get(opts, :skip_semantic, false)
     current_hash = node.body.data_ledger.integrity_hash
     last_hash = node.body.data_ledger.last_linked_hash
     incremental? = Application.get_env(:acn_cms, :incremental_binding, true)
@@ -24,25 +25,19 @@ defmodule CMS.Core.Logic.EdgeGenerator do
         node
       else
         Logger.info("EdgeGenerator: Forging connectome for #{node.id}#{if force, do: " [FORCE]", else: ""}")
-      # Phase 4 Upgrade: Connectome Scanning
-    structural_edges = CMS.Core.Logic.ConnectomeScanner.scan_skeleton(node)
-    immune_edges = CMS.Core.Logic.ConnectomeScanner.scan_immune(node)
-    nervous_edges = CMS.Core.Logic.ConnectomeScanner.scan_nervous(node)
-    
-    # Merge all edges manually from the previous pipe approach
-    # We need to construct the node with valid tails from the previous steps first or just merge results?
-    # The previous code piped functions which return 'node'. 
-    # But generate_syntactic_edges returns 'node' with updated tail.
-    # To correctly integrate, we chain the calls and then inspect/update the final node.
-    
-    node = node
-    |> generate_hierarchical_edges()
-    |> generate_syntactic_edges()
-    |> generate_semantic_edges()
-    
-    # Now append Phase 4 edges
-    new_tail = node.tail
-    
+
+        structural_edges = CMS.Core.Logic.ConnectomeScanner.scan_skeleton(node)
+        immune_edges = CMS.Core.Logic.ConnectomeScanner.scan_immune(node)
+        nervous_edges = CMS.Core.Logic.ConnectomeScanner.scan_nervous(node)
+
+        node = node
+        |> generate_hierarchical_edges()
+        |> generate_syntactic_edges()
+        # Semantic edges are deferred to SemanticBinder in Phase 2 during ingestion.
+        # They can still be forced here (e.g., from SystemMixer during a manual rebind).
+        |> then(fn n -> if skip_semantic, do: n, else: generate_semantic_edges(n) end)
+
+        new_tail = node.tail
     new_tail = Enum.reduce(structural_edges ++ nervous_edges, new_tail, fn edge, acc ->
       CMS.NodeTail.add_edge(acc, edge)
     end)
@@ -90,49 +85,99 @@ defmodule CMS.Core.Logic.EdgeGenerator do
   Generates syntactic edges by parsing the file content for imports/dependencies.
   """
   def generate_syntactic_edges(node) do
-    if node.body.mode == :deep do
-      # Decompress content for analysis
+    if node.body.mode in [:deep, :deterministic] do
       content = CMS.NodeBody.decompress(node.body) || ""
       path = node.body.data_ledger.physical_symlink
-      
-      imports = find_imports(content, path)
-      
-      Enum.reduce(imports, node, fn import_name, acc ->
-        # Find node by name
-        case CMS.VectorRouter.find_by_name(import_name) do
-          {:ok, target_id} ->
-            edge = Edge.new(target_id, :imports, 1.0)
-            %{acc | tail: NodeTail.add_edge(acc.tail, edge)}
-          _ -> 
-            # Not found in system. Check if it's a file path to generate a Ghost Node.
-            # (Simple heuristic: if it looks like a path or specific system lib)
-            if String.contains?(import_name, "/") do
-               # Check Bounded Circle
-               # NOTE: We need circle_root from node.provenance or opts, but EdgeGenerator 
-               # usually runs post-ingest. For Phase 2, we assume we might have circle_root in provenance
-               # or just assume specific system paths are external.
-               
-               # Let's assume for this specific requirement, if we see a path-like import 
-               # that isn't in Mnesia, we treat it as external.
-               
-               {ghost_uuid, _ghost_node, mn_record} = CMS.Ingestion.FractalAperture.create_ghost_node(import_name, node.id)
-               
-               # Write Ghost to Mnesia (if not exists)
-               # Use a safe write or check existence
-               case :mnesia.dirty_read(:nodes_table, ghost_uuid) do
-                 [] -> :mnesia.dirty_write(mn_record)
-                 _ -> :ok
-               end
-               
-               edge = Edge.new(ghost_uuid, :anchored_to, 1.0)
-               %{acc | tail: NodeTail.add_edge(acc.tail, edge)}
-            else
-               acc
-            end
-        end
-      end)
+      lang = CMS.Ingestion.CodeGraphEngine.language_from_path(path)
+
+      case CMS.Ingestion.CodeGraphEngine.nif_supported?(lang) do
+        true ->
+          case CMS.Ingestion.CodeGraph.Native.parse_source(lang, content) do
+            ast when is_map(ast) ->
+              relationships = CMS.Ingestion.CodeGraphEngine.extract_relationships(ast, path)
+              forge_edges_from_relationships(node, relationships)
+            _ ->
+              # Real failure for a supported language
+              Logger.warning("EdgeGenerator: NIF failed for #{path} (Language: #{lang}), falling back to regex.")
+              legacy_generate_syntactic_edges(node, content, path)
+          end
+        false ->
+          # Silent fallback for unsupported languages (JSON, HTML, etc)
+          legacy_generate_syntactic_edges(node, content, path)
+      end
     else
       node
+    end
+  end
+
+  defp forge_edges_from_relationships(node, relationships) do
+    Enum.reduce(relationships, node, fn {type, _from, to}, acc ->
+      case type do
+        "depends_on" -> forge_syntactic_edge(acc, to, :imports)
+        "calls"      -> forge_syntactic_edge(acc, to, :calls)
+        "defines"    -> forge_syntactic_edge(acc, to, :defines)
+        _            -> acc
+      end
+    end)
+  end
+
+  defp forge_syntactic_edge(node, target_name, edge_type) do
+    if is_binary(target_name) and is_high_signal?(target_name) do
+      case CMS.VectorRouter.find_by_name(target_name) do
+        {:ok, target_id} ->
+          add_edge_to_node(node, Edge.new(target_id, edge_type, 1.0))
+        _ ->
+          # Create Ghost Node for unknown symbols
+          {ghost_uuid, _ghost_node, mn_record} = CMS.Ingestion.FractalAperture.create_ghost_node(target_name, node.id)
+          
+          if ghost_uuid != nil do
+            case :mnesia.dirty_read(:nodes_table, ghost_uuid) do
+              [] -> :mnesia.dirty_write(mn_record)
+              _ -> :ok
+            end
+            
+            add_edge_to_node(node, Edge.new(ghost_uuid, edge_type, 1.0))
+          else
+            node
+          end
+      end
+    else
+      node
+    end
+  end
+
+  # Filter out noise from ghost node creation
+  defp is_high_signal?(name) do
+    cond do
+      # Too short to be a meaningful dependency
+      String.length(name) < 3 -> false
+      
+      # Test library noise (Jest/Vitest)
+      String.starts_with?(name, ["expect(", "describe(", "it(", "test(", "beforeEach(", "afterEach("]) -> false
+      
+      # Common syntactic keywords that slip through some parsers
+      name in ~w(IF ELSE WHILE FOR DO RETURN TRY CATCH FINALLY CONST LET VAR) -> false
+      
+      # Likely a simple variable or property access if it has no dots/slashes
+      # but is very common like 'id', 'data', 'item'
+      name in ~w(id data item list value key type name) -> false
+
+      true -> true
+    end
+  end
+
+  defp legacy_generate_syntactic_edges(node, content, path) do
+    lang = CMS.Ingestion.CodeGraphEngine.language_from_path(path)
+    relationships = CMS.Ingestion.CodeGraphEngine.extract_rigorous_fallback(lang, content, path)
+    
+    if relationships != [] do
+       forge_edges_from_relationships(node, relationships)
+    else
+       # Fallback to legacy find_imports for remaining types
+       imports = find_imports(content, path)
+       Enum.reduce(imports, node, fn import_name, acc ->
+         forge_syntactic_edge(acc, import_name, :imports)
+       end)
     end
   end
 
@@ -141,40 +186,30 @@ defmodule CMS.Core.Logic.EdgeGenerator do
   Queries all active NodeActors in parallel to find semantic neighbors.
   """
   def generate_semantic_edges(node) do
-    # Configuration matches IngestionEngine Spec
-    # Differentiate thresholds for CDMS/CREMS
     is_crems = crems_node?(node.id)
     conflict_threshold = if is_crems, do: 0.95, else: 0.98
-    
-    my_id = node.id
 
-    # Get raw candidates with scores using Scatter-Gather
+    my_id = node.id
     candidates = prime_candidates(node.head.embedding, node.id)
-    
+
     Enum.reduce(candidates, node, fn {target_id, score}, acc ->
       if score >= conflict_threshold and not is_crems do
-        # --- SPECIAL CASE: DIALECTICAL MERGE ---
-        # 1. Add Contradicts Link to Peer
+        # DIALECTICAL MERGE: Threshold-based (not LLM). Works in all modes.
         acc = add_edge_to_node(acc, Edge.new(target_id, :contradicts, 1.0))
-        
-        # 2. Spawn MetaNode for the conflict
+
         context = %{node_a: my_id, node_b: target_id, similarity: score}
         case CMS.MetaNode.spawn_conflict("Semantic overlap detected during Genesis", context) do
           {:ok, meta_node} ->
-             # Register and spawn MetaNode actor
              CMS.LogAppender.append_node_event(meta_node.id, :node_created, meta_node)
              CMS.NodeSupervisor.spawn_node(meta_node)
-             
-             # 3. Add Semantic Link to MetaNode
              edge_to_meta = Edge.new(meta_node.id, :semantic, 0.9)
              add_edge_to_node(acc, edge_to_meta)
           _ ->
              acc
         end
       else
-        # Normal Semantic Relationship
-        edge = Edge.new(target_id, :semantic, score)
-        add_edge_to_node(acc, edge)
+        # Normal semantic relationship — weight = raw cosine similarity.
+        add_edge_to_node(acc, Edge.new(target_id, :semantic, score))
       end
     end)
   end

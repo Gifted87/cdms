@@ -118,16 +118,8 @@ defmodule CMS.Ingestion.FileIngestionTask do
   defp run_cognitive_step(path, content, mime, mode) do
     cond do
       mode == :deterministic ->
-        # Use Deterministic Aggregator (Dimension 1-5)
-        summary = CMS.Ingestion.DeterministicAggregator.aggregate(path, content, mime)
-        # In deterministic mode, we can extract keywords as concepts
-        concepts = summary 
-                   |> String.split("[KEYWORDS]: ") 
-                   |> List.last() 
-                   |> String.split("\n") 
-                   |> List.first() 
-                   |> String.split(", ")
-        {:ok, {summary, concepts}}
+        # Use Deterministic Aggregator (Dimension 1-5 + Concepts)
+        CMS.Ingestion.DeterministicAggregator.aggregate(path, content, mime)
 
       mode == :mode_a_deep ->
         summary_result = GeminiBridge.summarize(content, "gemini-2.5-flash-lite", path)
@@ -162,17 +154,24 @@ defmodule CMS.Ingestion.FileIngestionTask do
     
 
     # Step 4: Vectorization (Python ML Bridge)
-    # Uses CMS.Tool.Embedder.generate
-    vector_input = """
-    FILE: #{Path.basename(path)}
-    SUMMARY: #{summary}
-    CONTENT:
-    #{safe_content}
-    """
-    
+    # Builds a compact, high-signal Semantic Fingerprint instead of raw source dump.
+    # Guarantees we stay within the 512-token budget of all-MiniLM-L6-v2 and ensures
+    # the embedding encodes semantic identity, not syntactic noise.
+    lang = CMS.Ingestion.CodeGraphEngine.language_from_path(path)
+    relationships = case CMS.Ingestion.CodeGraph.Native.parse_source(lang, safe_content) do
+      ast when is_map(ast) ->
+        CMS.Ingestion.CodeGraphEngine.extract_relationships(ast, path)
+      _ ->
+        CMS.Ingestion.CodeGraphEngine.extract_rigorous_fallback(lang, safe_content, path)
+    end
+
+    vector_input = CMS.Ingestion.SemanticFingerprint.build(path, safe_content, relationships)
+
+    Logger.debug("SemanticFingerprint for #{Path.basename(path)}: #{String.slice(vector_input, 0, 200)}...")
+
     # Defaults to all-MiniLM-L6-v2 in ml_bridge.py
     embedding = case Embedder.generate(vector_input, @embedding_model) do
-      {:ok, tensor} -> 
+      {:ok, tensor} ->
          tensor
       {:error, reason} ->
          Logger.warning("Embedding failed for #{path}: #{inspect(reason)}. Using zero-vector.")
@@ -197,18 +196,37 @@ defmodule CMS.Ingestion.FileIngestionTask do
     CMS.VectorRouter.register_name(filename, uuid)
     CMS.VectorRouter.register_name(stem, uuid)
     
-    # Register Module Names for Syntactic Resolution
-    if Path.extname(path) in [".ex", ".exs"] do
-      case Code.string_to_quoted(content) do
-        {:ok, quoted} ->
-          Macro.prewalk(quoted, fn
-            {:defmodule, _, [{:__aliases__, _, names} | _]} ->
-              CMS.VectorRouter.register_name(Enum.join(names, "."), uuid)
-              nil
-            other -> other
-          end)
-        _ -> :ok
-      end
+    # Register Module/Definition Names for Syntactic Resolution via NIF
+    lang = CMS.Ingestion.CodeGraphEngine.language_from_path(path)
+    case CMS.Ingestion.CodeGraph.Native.parse_source(lang, content) do
+      ast when is_map(ast) ->
+        CMS.Ingestion.CodeGraphEngine.extract_relationships(ast, path)
+        |> Enum.filter(&match?({"defines", _, _}, &1))
+        |> Enum.each(fn {_, _, name} ->
+          if is_binary(name) do
+            CMS.VectorRouter.register_name(name, uuid)
+            
+            # Also register short name (last segment) for alias resolution
+            case String.split(name, ".") |> List.last() do
+              nil -> :ok
+              short -> CMS.VectorRouter.register_name(short, uuid)
+            end
+          end
+        end)
+      _ ->
+        # Fallback for Elixir if NIF fails (existing logic)
+        if Path.extname(path) in [".ex", ".exs"] do
+          case Code.string_to_quoted(content) do
+            {:ok, quoted} ->
+              Macro.prewalk(quoted, fn
+                {:defmodule, _, [{:__aliases__, _, names} | _]} ->
+                  CMS.VectorRouter.register_name(Enum.join(names, "."), uuid)
+                  nil
+                other -> other
+              end)
+            _ -> :ok
+          end
+        end
     end
 
     # Add to HNSW Index immediately so semantic search can find it
@@ -232,7 +250,12 @@ defmodule CMS.Ingestion.FileIngestionTask do
     # Create DataTail with full Anatomical Ledger
     data_ledger = DataTail.new(path, hash, mime, salience, essence.permissions, essence.ownership, essence.immutable_flags, essence.genetic_provenance, metabolism)
     
-    body = NodeBody.new(data_head, if(mode in [:mode_a_deep, :deterministic], do: content, else: nil), data_ledger, if(mode == :mode_a_deep, do: :deep, else: :shallow))
+    body = NodeBody.new(data_head, if(mode in [:mode_a_deep, :deterministic], do: content, else: nil), data_ledger, 
+      case mode do
+        :mode_a_deep -> :deep
+        :deterministic -> :deterministic
+        _ -> :shallow
+      end)
     
     node = Node.new(head, body, antenna, provenance)
 
@@ -244,9 +267,12 @@ defmodule CMS.Ingestion.FileIngestionTask do
       node
     end
 
-    # Step 8: Edge Forging (Now with registration data available)
+    # Step 8: Edge Forging
+    # NOTE: :skip_semantic is intentional. Semantic edges require GLOBAL awareness
+    # (all nodes must be in the DriftIndex before any can be linked). The
+    # SemanticBinder in Genesis Phase 2 handles this correctly after full population.
     node = if edge_generation do
-      CMS.Core.Logic.EdgeGenerator.generate_edges(node)
+      CMS.Core.Logic.EdgeGenerator.generate_edges(node, skip_semantic: true)
     else
       node
     end

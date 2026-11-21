@@ -59,6 +59,7 @@ defmodule CMS.Application do
 
       # 5. Ingestion & Query Services
       CMS.Ingestion.NodeRegistry,
+      CMS.Infrastructure.KeyRotation,
       CMS.Infrastructure.GeminiBridge,
       CMS.Services.LiveWire,
       {Task.Supervisor, name: CMS.Ingestion.TaskSupervisor},

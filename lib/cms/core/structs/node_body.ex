@@ -9,14 +9,14 @@ defmodule CMS.NodeBody do
     :data_head,   # %CMS.DataHead{} (Summary & Concepts)
     :data_body,   # Binary (Compressed Content) or Nil (Shallow)
     :data_ledger, # %CMS.DataTail{} (The Ledger)
-    :mode         # :deep (Mode A) or :shallow (Mode B)
+    :mode         # :deep (Mode A), :shallow (Mode B), or :deterministic (No-LLM)
   ]
 
   @type t :: %__MODULE__{
     data_head: CMS.DataHead.t(),
     data_body: binary() | nil,
     data_ledger: CMS.DataTail.t(),
-    mode: :deep | :shallow
+    mode: :deep | :shallow | :deterministic
   }
 
   @doc """

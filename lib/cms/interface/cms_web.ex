@@ -1406,7 +1406,8 @@ defmodule CMS.Web.SocketHandler do
   def init(req, state) do
     qs = :cowboy_req.parse_qs(req)
     token = :proplists.get_value("token", qs)
-    permissions = if token == "admin_secret", do: :admin, else: :public
+    admin_token = Application.get_env(:acn_cms, :admin_token)
+    permissions = if token == admin_token, do: :admin, else: :public
     {:cowboy_websocket, req, Map.put(state, :permissions, permissions)}
   end
 

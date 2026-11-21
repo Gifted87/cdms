@@ -28,6 +28,7 @@ defmodule CMS.Ingestion.FractalAperture do
   Creates a Ghost Node: A simplified marker for an external dependency.
   It has no body (content), no history, but acts as a rigid anchor.
   """
+  def create_ghost_node(nil, _origin_node_id), do: {nil, nil, nil}
   def create_ghost_node(path, origin_node_id) do
     # Unique ID based on path hash
     uuid = UUID.uuid5(:oid, path)

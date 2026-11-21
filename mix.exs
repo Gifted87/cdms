@@ -8,6 +8,12 @@ defmodule AcnCms.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      rustler_crates: [
+        codegraph_engine: [
+          path: "native/codegraph_engine",
+          mode: if(Mix.env() == :prod, do: :release, else: :debug)
+        ]
+      ],
       xref: [exclude: [:mnesia]]
     ]
   end
@@ -28,6 +34,9 @@ defmodule AcnCms.MixProject do
 
       # Broadway for Pipelines
       {:broadway, "~> 1.0"},
+
+      # Rustler for NIFs
+      {:rustler, "0.31.0", runtime: false},
 
       # JSON
       {:jason, "~> 1.4"},

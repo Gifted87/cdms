@@ -63,6 +63,14 @@ defmodule CMS.Ingestion.DeterministicAggregator do
       import_pattern: ~r/<(?:script|link|import).*?(?:src|href)=["'](.*?)["']/,
       function_pattern: nil
     },
+    # Stylesheets
+    css_style: %{
+      extensions: ~w(.css .scss .less),
+      line_comment: nil,
+      block_comment: {~r/\/\*/, ~r/\*\//},
+      import_pattern: ~r/@import\s+["'](.*?)["']/,
+      function_pattern: ~r/([\.#a-zA-Z0-9_-]+)\s*\{/
+    },
     # Lua
     lua_style: %{
       extensions: ~w(.lua),
@@ -109,13 +117,13 @@ defmodule CMS.Ingestion.DeterministicAggregator do
 
     intent = get_intent(path, content, rules)
     structure = get_structure(path, content, rules)
-    imports = get_imports(content, rules)
+    imports = get_imports(content, rules, path)
     comments = get_all_comments(content, rules)
     keywords = get_keywords(path, content, rules)
     geography = get_geography(path)
-    anatomy = get_anatomy(path, mime)
+    anatomy   = get_anatomy(path, mime)
 
-    """
+    summary = """
     [INTENT]: #{intent}
     [STRUCTURE]: #{structure}
     [IMPORTS]: #{imports}
@@ -124,6 +132,24 @@ defmodule CMS.Ingestion.DeterministicAggregator do
     [GEOGRAPHY]: #{geography}
     [ANATOMY]: #{anatomy}
     """ |> String.trim()
+
+    # Phase 3 Upgrade: Deterministic Concept Mapping (NOW WITH FULL AST)
+    lang = CMS.Ingestion.CodeGraphEngine.language_from_path(path)
+    concepts = case CMS.Ingestion.CodeGraph.Native.parse_source(lang, content) do
+      ast when is_map(ast) ->
+        CMS.Ingestion.DeterministicConceptMapper.map_concepts(path, content, ast)
+      _ ->
+        # Use Rigorous Fallback for concepts if NIF fails or is unsupported
+        relationships = CMS.Ingestion.CodeGraphEngine.extract_rigorous_fallback(lang, content, path)
+        if relationships != [] do
+          relationships |> Enum.map(fn {type, _, name} -> "#{type}:#{name}" end) |> Enum.uniq()
+        else
+          # Final fallback to keyword-based concepts
+          keywords |> String.split(", ") |> Enum.map(&"keyword:#{&1}")
+        end
+    end
+
+    {:ok, {summary, concepts}}
   end
 
   defp get_rules_for_ext(ext) do
@@ -151,6 +177,17 @@ defmodule CMS.Ingestion.DeterministicAggregator do
           [_, title] -> "Documentation Title: #{title}"
           _ -> "Markdown documentation."
         end
+      ext in ~w(.html .htm) ->
+        case Regex.run(~r/<title[^>]*>(.*?)<\/title>/i, content) do
+          [_, title] -> "Web Document: #{title}"
+          _ -> 
+             case Regex.run(~r/<h1[^>]*>(.*?)<\/h1>/i, content) do
+               [_, h1] -> "Web Page: #{h1}"
+               _ -> "Static HTML content or template."
+             end
+        end
+      ext == ".json" -> "Structured data or configuration (JSON)."
+      ext == ".css" -> "User interface styling (CSS)."
       ext in ~w(.log .out .err) ->
         "System log file capturing runtime events."
       true ->
@@ -178,10 +215,16 @@ defmodule CMS.Ingestion.DeterministicAggregator do
                intent_from_block
             else
                prefix = Map.get(rules, :line_comment)
-               if prefix do
+               intent_from_comments = if prefix do
                   extract_continuous_comments(content, prefix)
                else
-                  "System file (Binary or Data)."
+                  "No header comments found."
+               end
+
+               if intent_from_comments == "No header comments found." do
+                  humanise_path(path)
+               else
+                  intent_from_comments
                end
             end
         end
@@ -216,8 +259,32 @@ defmodule CMS.Ingestion.DeterministicAggregator do
 
   # --- Dimension 2: The Functional Surface [STRUCTURE] ---
   defp get_structure(path, content, rules) do
-     ext = Path.extname(path) |> String.downcase()
-     cond do
+    lang = CMS.Ingestion.CodeGraphEngine.language_from_path(path)
+
+    # Attempt AST-based extraction via NIF
+    case CMS.Ingestion.CodeGraph.Native.parse_source(lang, content) do
+      ast when is_map(ast) ->
+        relationships = CMS.Ingestion.CodeGraphEngine.extract_relationships(ast, path)
+        defines   = relationships |> Enum.filter(&match?({"defines", _, _}, &1))
+                                 |> Enum.map(fn {_, _, name} -> name end)
+        calls     = relationships |> Enum.filter(&match?({"calls", _, _}, &1))
+                                 |> Enum.map(fn {_, _, name} -> name end)
+        deps      = relationships |> Enum.filter(&match?({"depends_on", _, _}, &1))
+                                 |> Enum.map(fn {_, _, name} -> name end)
+        """
+        Defines: #{Enum.join(defines, ", ")}
+        Calls: #{Enum.join(Enum.take(calls, 20), ", ")}
+        DependsOn: #{Enum.join(deps, ", ")}
+        """
+      _ ->
+        # Fallback to original regex-based extraction
+        get_structure_regex(path, content, rules)
+    end
+  end
+
+  defp get_structure_regex(path, content, rules) do
+    ext = Path.extname(path) |> String.downcase()
+    cond do
        ext in [".ex", ".exs"] ->
           try do
             case Code.string_to_quoted(content) do
@@ -277,23 +344,40 @@ defmodule CMS.Ingestion.DeterministicAggregator do
   end
 
   # --- Dimension 3: [IMPORTS] ---
-  defp get_imports(content, rules) do
+  defp get_imports(content, rules, path) do
     if Map.get(rules, :is_binary) do
        "Not applicable to binary artifacts."
     else
-      pattern = Map.get(rules, :import_pattern)
-      if pattern do
-        Regex.scan(pattern, content)
+      lang = CMS.Ingestion.CodeGraphEngine.language_from_path(path)
+      case CMS.Ingestion.CodeGraph.Native.parse_source(lang, content) do
+        ast when is_map(ast) ->
+          CMS.Ingestion.CodeGraphEngine.extract_relationships(ast, path)
+          |> Enum.filter(&match?({"depends_on", _, _}, &1))
+          |> Enum.map(fn {_, _, name} -> name end)
+          |> Enum.uniq()
+          |> Enum.join(", ")
+          |> case do
+               "" -> "None detected."
+               s  -> s
+             end
+        _ ->
+          get_imports_regex(content, rules)
+      end
+    end
+  end
+
+  defp get_imports_regex(content, rules) do
+    case Map.get(rules, :import_pattern) do
+      regex when is_struct(regex, Regex) ->
+        Regex.scan(regex, content)
         |> Enum.map(&List.last/1)
         |> Enum.uniq()
         |> Enum.join(", ")
         |> case do
-          "" -> "None detected."
-          s -> s
-        end
-      else
-        "Import extraction not supported."
-      end
+             "" -> "None detected."
+             s -> s
+           end
+      _ -> "Not supported."
     end
   end
 
@@ -390,7 +474,28 @@ defmodule CMS.Ingestion.DeterministicAggregator do
     end
   end
 
-  # --- Dimension 7: Biology ---
+  # --- Helpers ---
+
+  defp humanise_path(path) do
+    basename = Path.basename(path) |> Path.rootname()
+    parts = Path.split(path)
+    
+    type_label = cond do
+      "test" in parts or String.contains?(basename, "test") -> "Test suite"
+      "spec" in parts or String.contains?(basename, "spec") -> "Specification"
+      "controller" in parts or String.contains?(basename, "controller") -> "Interface controller"
+      "service" in parts or String.contains?(basename, "service") -> "Logic service"
+      true -> "Source module"
+    end
+
+    clean_name = basename 
+                 |> String.replace(~r/[\._]test|[\._]spec/i, "")
+                 |> String.replace("_", " ")
+                 |> String.capitalize()
+
+    "#{type_label} for #{clean_name}."
+  end
+
   defp get_anatomy(path, mime) do
      triage_class = case CMS.Ingestion.TriageProtocol.identify(path) do
        {:ok, c} -> c
@@ -399,4 +504,3 @@ defmodule CMS.Ingestion.DeterministicAggregator do
      "OrganType: #{AnatomyEngine.classify_organ(triage_class, path, mime)} | Metabolism: #{AnatomyEngine.classify_metabolism(path, triage_class)}"
   end
 end
-

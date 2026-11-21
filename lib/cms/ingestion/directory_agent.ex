@@ -348,7 +348,7 @@ defmodule CMS.Ingestion.DirectoryAgent do
     
     if cog_mode == :deterministic do
       # Use Deterministic Aggregator for directory as well
-      summary = CMS.Ingestion.DeterministicAggregator.aggregate(path, contents, "inode/directory")
+      {:ok, {summary, _concepts}} = CMS.Ingestion.DeterministicAggregator.aggregate(path, contents, "inode/directory")
       concepts = [dir_name, "Directory"]
       {:ok, {summary, concepts}}
     else
